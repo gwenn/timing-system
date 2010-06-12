@@ -73,8 +73,11 @@ WHEN (SELECT 1 FROM resultVersion v WHERE v.raceId = NEW.raceId AND (strftime('%
 BEGIN
     -- Create intermediary data/stats
     DELETE FROM position WHERE raceId = NEW.raceId;
-    INSERT INTO position SELECT raceId, racerId, count(1), strftime('%s', max(time)) - strftime('%s', min(time))
-        FROM timelog WHERE raceId = NEW.raceId GROUP BY racerId;
+    INSERT INTO position SELECT raceId, racerId, count(1),
+        strftime('%s', max(time)) - strftime('%s', ifnull(startTime, min(time)))
+        FROM timelog
+        INNER JOIN race on race.id = timelog.raceId
+        WHERE raceId = NEW.raceId GROUP BY racerId;
     -- Generate results
     ---- Overall results
     REPLACE INTO result (type, raceId, racerId, nb, duration, rank)
@@ -128,8 +131,11 @@ BEGIN
 -- TODO Keep synchronized with results_generation
     -- Create intermediary data/stats
     DELETE FROM position WHERE raceId = OLD.id;
-    INSERT INTO position SELECT raceId, racerId, count(1), strftime('%s', max(time)) - strftime('%s', min(time))
-        FROM timelog WHERE raceId = OLD.id GROUP BY racerId;
+    INSERT INTO position SELECT raceId, racerId, count(1),
+        strftime('%s', max(time)) - strftime('%s', ifnull(startTime, min(time)))
+        FROM timelog
+        INNER JOIN race on race.id = timelog.raceId
+        WHERE raceId = OLD.id GROUP BY racerId;
     -- Generate results
     ---- Overall results
     REPLACE INTO result (type, raceId, racerId, nb, duration, rank)
