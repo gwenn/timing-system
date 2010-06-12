@@ -1,16 +1,16 @@
-PRAGMA foreign_keys=OFF;
+PRAGMA foreign_keys=ON;
 BEGIN TRANSACTION;
 CREATE TABLE racer (
-    id          int not null,
-    number      int not null, -- TODO Validate
-    country     text not null,
-    city        text,
-    team        text,
-    gender      int not null check (gender in (1, 2)),
-    firstName   text not null,
-    lastName    text not null,
-    nickName    text,
-    primary key (id)
+    id          INT NOT NULL,
+    number      INT NOT NULL, -- TODO Validate
+    country     TEXT NOT NULL,
+    city        TEXT,
+    company     TEXT,
+    gender      INT NOT NULL CHECK (gender IN (1, 2)),
+    firstName   TEXT NOT NULL,
+    lastName    TEXT NOT NULL,
+    nickName    TEXT,
+    PRIMARY KEY (id)
 );
 INSERT INTO racer VALUES(1,1,'FRA','Paris','Urban',1,'A','','');
 INSERT INTO racer VALUES(2,2,'FRA','Paris','Urban',1,'B','','');
@@ -18,97 +18,114 @@ INSERT INTO racer VALUES(3,3,'FRA','Paris','Urban',2,'C','','');
 INSERT INTO racer VALUES(4,4,'FRA','Paris','Urban',1,'D','','');
 INSERT INTO racer VALUES(5,5,'FIN','Paris','Cyclair',1,'E','','');
 CREATE TABLE race (
-    id          int not null,
-    name        text not null,
-    startTime   text, -- null when each racer has its own startTime
-    primary key (id)
+    id          INT NOT NULL,
+    name        TEXT NOT NULL,
+    startTime   TEXT, -- null when each racer has its own startTime
+    PRIMARY KEY (id)
 );
-INSERT INTO race VALUES(1,'Qualif',NULL);
-INSERT INTO race VALUES(2,'Main race','2010-05-16T14:00:00.000');
+INSERT INTO race VALUES(1,'Main Race Qualification',NULL);
+INSERT INTO race VALUES(2,'Main Race Final','2010-05-16T14:00:00.000');
 CREATE TABLE timeLog (
-    raceId      int not null,
-    racerId     int not null,
-    time        text not null,
-    primary key (raceId, racerId, time),
-    foreign key (raceId) references race(id),
-    foreign key (racerId) references racer(id)
+    raceId      INT NOT NULL,
+    racerId     INT NOT NULL,
+    time        TEXT NOT NULL,
+    PRIMARY KEY (raceId, racerId, time),
+    FOREIGN KEY (raceId) REFERENCES race(id), -- ON DELETE CASCADE
+    FOREIGN KEY (racerId) REFERENCES racer(id) -- ON DELETE CASCADE
 );
--- Qualif starts
+-- Qualification start times
 INSERT INTO timeLog VALUES(1,1,'2010-05-16T09:00:00.000');
 INSERT INTO timeLog VALUES(1,2,'2010-05-16T09:00:30.000');
 INSERT INTO timeLog VALUES(1,3,'2010-05-16T09:01:00.000');
 INSERT INTO timeLog VALUES(1,4,'2010-05-16T09:01:30.000');
 INSERT INTO timeLog VALUES(1,5,'2010-05-16T09:02:00.000');
--- Qualif finishes
+-- Qualification finish times
 INSERT INTO timeLog VALUES(1,1,'2010-05-16T09:24:49.000');
 INSERT INTO timeLog VALUES(1,2,'2010-05-16T09:25:39.000');
 INSERT INTO timeLog VALUES(1,3,'2010-05-16T09:26:12.000');
 INSERT INTO timeLog VALUES(1,4,'2010-05-16T09:27:05.000');
 INSERT INTO timeLog VALUES(1,5,'2010-05-16T09:30:58.000');
 
-CREATE UNIQUE INDEX racer_number on racer(number);
-CREATE INDEX racer_country on racer(country);
-CREATE INDEX racer_team on racer(team);
-CREATE INDEX racer_gender on racer(gender);
+CREATE TABLE position ( -- temporary table/transient table to ease results generation
+    raceId      INT NOT NULL,
+    racerId     INT NOT NULL,
+    nb          INT NOT NULL CHECK (nb >= 0), -- Number of manifests
+    duration    INT NOT NULL CHECK (duration >= 0), -- Number of seconds
+    PRIMARY KEY (raceId, racerId),
+    FOREIGN KEY (raceId) REFERENCES race(id), -- ON DELETE CASCADE
+    FOREIGN KEY (racerId) REFERENCES racer(id) -- ON DELETE CASCADE
+);
+
+CREATE TABLE resultVersion (
+    raceId      INT NOT NULL,
+    time        TEXT NOT NULL, -- Last time results were generated
+    PRIMARY KEY (raceId),
+    FOREIGN KEY (raceId) REFERENCES race(id) -- ON DELETE CASCADE
+);
+
+CREATE TABLE result (
+    type        INT NOT NULL, -- 0 | Overall | 1 | Country | 2 | Gender | 3 | Country and Gender | ...
+    raceId      INT NOT NULL,
+    racerId     INT NOT NULL,
+    nb          INT NOT NULL CHECK (nb >= 0), -- Number of manifests
+    duration    INT NOT NULL CHECK (duration >= 0), -- Number of seconds
+    PRIMARY KEY (type, raceId, racerId),
+    FOREIGN KEY (raceId) REFERENCES race(id), -- ON DELETE CASCADE
+    FOREIGN KEY (racerId) REFERENCES racer(id) -- ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX racer_number ON racer(number);
+CREATE INDEX racer_country ON racer(country);
+CREATE INDEX racer_gender ON racer(gender);
 COMMIT;
 /*
-create temporary table position
-as select raceId, racerId, count(1) as nb, strftime('%s', max(time)) - strftime('%s', min(time)) as time
-from timelog
-group by raceId, racerId;
+*/
+/*
+CREATE TEMPORARY TABLE position
+AS SELECT raceId, racerId, count(1) AS nb, strftime('%s', max(time)) - strftime('%s', min(time)) AS duration
+FROM timelog
+GROUP BY raceId, racerId;
 
--- Classement général
-select country, gender,  number, firstName, (select count(*)
-	from position p2
-	where p2.raceId = p1.raceId
-	and p2.nb >= p1.nb and p2.time <= p1.time) as position
-from position p1
-inner join racer on id = racerId
-where raceId = 1
-order by position asc;
+-- Overall Results
+SELECT country, gender,  number, firstName, (SELECT count(*)
+	FROM position p2
+	WHERE p2.raceId = p1.raceId
+	AND p2.nb >= p1.nb AND p2.duration <= p1.duration) AS position
+FROM position p1
+INNER JOIN racer ON id = racerId
+WHERE raceId = 1
+ORDER BY position;
 
--- Classement par pays
-select country, gender,  number, firstName, (select count(*)
-	from position p2
-	inner join racer r2 on r2.id = p2.racerId
-	where p2.raceId = p1.raceId
-	and r2.country = r1.country
-	and p2.nb >= p1.nb and p2.time <= p1.time) as position
-from position p1
-inner join racer r1 on r1.id = p1.racerId
-where raceId = 1
-order by country asc, position asc;
+-- Results by country
+SELECT country, gender,  number, firstName, (SELECT count(*)
+	FROM position p2
+	INNER JOIN racer r2 ON r2.id = p2.racerId
+	WHERE p2.raceId = p1.raceId
+	AND r2.country = r1.country
+	AND p2.nb >= p1.nb AND p2.duration <= p1.duration) AS position
+FROM position p1
+INNER JOIN racer r1 ON r1.id = p1.racerId
+WHERE raceId = 1
+ORDER BY country, position;
 
--- Classement par pays et par sexe
-select country, gender, number, firstName, (select count(*)
-	from position p2
-	inner join racer r2 on r2.id = p2.racerId
-	where p2.raceId = p1.raceId
-	and r2.country = r1.country
-	and r2.gender = r1.gender
-	and p2.nb >= p1.nb and p2.time <= p1.time) as position
-from position p1
-inner join racer r1 on r1.id = p1.racerId
-where raceId = 1
-order by country asc, gender asc, position asc;
+-- Results by country and by gender
+SELECT country, gender, number, firstName, (SELECT count(*)
+	FROM position p2
+	INNER JOIN racer r2 ON r2.id = p2.racerId
+	WHERE p2.raceId = p1.raceId
+	AND r2.country = r1.country
+	AND r2.gender = r1.gender
+	AND p2.nb >= p1.nb AND p2.duration <= p1.duration) AS position
+FROM position p1
+INNER JOIN racer r1 ON r1.id = p1.racerId
+WHERE raceId = 1
+ORDER BY country, gender, position;
 */
 
 /*
+Pango
 XSL-FO
 
+PRAGMA count_changes;
+PRAGMA foreign_keys;
 */
-
-/*
-create view position
-as select raceId, racerId, count(1) as nb, strftime('%s', max(time)) - strftime('%s', min(time)) as time
-from timelog
-group by raceId, racerId;
-
-select racerId, (select count(*)
-	from position p2
-	where p2.raceId = p1.raceId
-	and p2.nb > p1.nb and p2.time < p1.time)
-from position p1 where raceId = 1;
--- Error: misuse of aggregate
-*/
-
