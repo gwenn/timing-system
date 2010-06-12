@@ -1,30 +1,28 @@
 CREATE TABLE racer (
-    id          INT NOT NULL,
-    number      INT NOT NULL,
+    id          INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    number      INTEGER NOT NULL,
     country     TEXT NOT NULL,
     city        TEXT,
     company     TEXT,
-    gender      INT NOT NULL CHECK (gender IN (1, 2)),
+    gender      INTEGER NOT NULL CHECK (gender IN (1, 2)),
     firstName   TEXT NOT NULL,
     lastName    TEXT NOT NULL,
-    nickName    TEXT,
-    PRIMARY KEY (id)
+    nickName    TEXT
 );
 CREATE UNIQUE INDEX racer_number ON racer(number);
 CREATE INDEX racer_country ON racer(country);
 CREATE INDEX racer_gender ON racer(gender);
 
 CREATE TABLE race (
-    id          INT NOT NULL,
+    id          INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     name        TEXT NOT NULL,
     startTime   TEXT, -- null when each racer has its own startTime
-    status      INT NOT NULL DEFAULT 0, -- 0 | START | 1 | END
-    PRIMARY KEY (id)
+    status      INTEGER NOT NULL DEFAULT 0 -- 0 | START | 1 | END
 );
 
 CREATE TABLE timelog (
-    raceId      INT NOT NULL,
-    racerId     INT NOT NULL,
+    raceId      INTEGER NOT NULL,
+    racerId     INTEGER NOT NULL,
     time        TEXT NOT NULL,
     PRIMARY KEY (raceId, racerId, time),
     FOREIGN KEY (raceId) REFERENCES race(id), -- ON DELETE CASCADE
@@ -32,30 +30,30 @@ CREATE TABLE timelog (
 );
 
 CREATE TABLE position ( -- intermediary data to ease results generation
-    raceId      INT NOT NULL,
-    racerId     INT NOT NULL,
-    nb          INT NOT NULL CHECK (nb >= 0), -- Number of manifests
-    duration    INT NOT NULL CHECK (duration >= 0), -- Number of seconds
+    raceId      INTEGER NOT NULL,
+    racerId     INTEGER NOT NULL,
+    nb          INTEGER NOT NULL CHECK (nb >= 0), -- Number of manifests
+    duration    INTEGER NOT NULL CHECK (duration >= 0), -- Number of seconds
     PRIMARY KEY (raceId, racerId),
     FOREIGN KEY (raceId) REFERENCES race(id), -- ON DELETE CASCADE
     FOREIGN KEY (racerId) REFERENCES racer(id) -- ON DELETE CASCADE
 );
 
 CREATE TABLE resultVersion (
-    raceId      INT NOT NULL,
-    time        INT NOT NULL, -- Last time results were generated
+    raceId      INTEGER NOT NULL,
+    time        INTEGER NOT NULL, -- Last time results were generated
     PRIMARY KEY (raceId),
     FOREIGN KEY (raceId) REFERENCES race(id) -- ON DELETE CASCADE
 );
 
 CREATE TABLE result (
-    type        INT NOT NULL, -- 0 | Overall | 1 | Country | 2 | Gender | 3 | Country and Gender | ...
-    raceId      INT NOT NULL,
-    racerId     INT NOT NULL,
-    nb          INT NOT NULL CHECK (nb >= 0), -- Number of manifests
-    duration    INT NOT NULL CHECK (duration >= 0), -- Number of seconds
-    rank        INT NOT NULL CHECK (nb >= 1),
-    prevRank    INT CHECK (prevRank IS NULL or prevRank >= 1), -- To see progression/regression
+    type        INTEGER NOT NULL, -- 0 | Overall | 1 | Country | 2 | Gender | 3 | Country and Gender | ...
+    raceId      INTEGER NOT NULL,
+    racerId     INTEGER NOT NULL,
+    nb          INTEGER NOT NULL CHECK (nb >= 0), -- Number of manifests
+    duration    INTEGER NOT NULL CHECK (duration >= 0), -- Number of seconds
+    rank        INTEGER NOT NULL CHECK (nb >= 1),
+    prevRank    INTEGER CHECK (prevRank IS NULL or prevRank >= 1), -- To see progression/regression
     PRIMARY KEY (type, raceId, racerId),
     FOREIGN KEY (raceId) REFERENCES race(id), -- ON DELETE CASCADE
     FOREIGN KEY (racerId) REFERENCES racer(id) -- ON DELETE CASCADE
