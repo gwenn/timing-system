@@ -52,22 +52,48 @@ CREATE TABLE result (
     racerId     INTEGER NOT NULL,
     nb          INTEGER NOT NULL CHECK (nb >= 0), -- Number of manifests
     duration    INTEGER NOT NULL CHECK (duration >= 0), -- Number of seconds
-    rank        INTEGER NOT NULL CHECK (nb >= 1),
-    prevRank    INTEGER CHECK (prevRank IS NULL or prevRank >= 1), -- To see progression/regression
+    rank        INTEGER NOT NULL CHECK (rank >= 1),
     PRIMARY KEY (type, raceId, racerId),
     FOREIGN KEY (raceId) REFERENCES race(id), -- ON DELETE CASCADE
     FOREIGN KEY (racerId) REFERENCES racer(id) -- ON DELETE CASCADE
 );
 
-CREATE TRIGGER rank_progression AFTER UPDATE OF rank ON result
-WHEN (NEW.rank <> OLD.rank) -- TODO Validate
+-- To see progression/regression
+CREATE TABLE resultHisto (
+    type        INTEGER NOT NULL, -- 0 | Overall | 1 | Country | 2 | Gender | 3 | Country and Gender | ...
+    raceId      INTEGER NOT NULL,
+    racerId     INTEGER NOT NULL,
+    rank        INTEGER NOT NULL CHECK (rank >= 1),
+    PRIMARY KEY (type, raceId, racerId),
+    FOREIGN KEY (raceId) REFERENCES race(id), -- ON DELETE CASCADE
+    FOREIGN KEY (racerId) REFERENCES racer(id) -- ON DELETE CASCADE
+);
+
+CREATE TRIGGER rank_progression AFTER DELETE ON result
 BEGIN
-    UPDATE result SET prevRank = OLD.rank;
+    REPLACE INTO resultHisto VALUES (OLD.type, OLD.raceId, OLD.racerId, OLD.rank);
+END;
+
+CREATE TRIGGER closed_race_lock1 AFTER INSERT ON timelog
+WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 1) IS NOT NULL
+BEGIN
+    SELECT RAISE(FAIL, 'No timelog can be inserted for a closed race.');
+END;
+CREATE TRIGGER closed_race_lock2 AFTER UPDATE ON timelog
+WHEN (SELECT 1 FROM race r WHERE r.id = OLD.raceId AND r.status = 1) IS NOT NULL
+BEGIN
+    SELECT RAISE(FAIL, 'No timelog can be upated for a closed race.');
+END;
+CREATE TRIGGER closed_race_lock3 AFTER DELETE ON timelog
+WHEN (SELECT 1 FROM race r WHERE r.id = OLD.raceId AND r.status = 1) IS NOT NULL
+BEGIN
+    SELECT RAISE(FAIL, 'No timelog can be deleted for a closed race.');
 END;
 
 CREATE TRIGGER results_generation AFTER INSERT ON timelog
 -- TODO Adjust delay (every minute)?
-WHEN (SELECT 1 FROM resultVersion v WHERE v.raceId = NEW.raceId AND (strftime('%s','now') - v.time) < 60) IS NULL
+WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 1) IS NULL
+AND (SELECT 1 FROM resultVersion v WHERE v.raceId = NEW.raceId AND (strftime('%s','now') - v.time) < 60) IS NULL
 BEGIN
     -- Create intermediary data/stats
     DELETE FROM position WHERE raceId = NEW.raceId;
@@ -182,9 +208,7 @@ BEGIN
 END;
 
 /*
-Pango
-XSL-FO
-
 PRAGMA count_changes;
 PRAGMA foreign_keys;
+PRAGMA recursive_triggers;
 */
