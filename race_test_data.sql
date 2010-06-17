@@ -8,8 +8,8 @@ INSERT INTO racer VALUES(NULL,4,'FRA','Paris','Urban cycle',1,'D','','');
 INSERT INTO racer VALUES(NULL,5,'FIN','Paris','Cycl''air',1,'E','','');
 INSERT INTO racer VALUES(NULL,6,'FIN','Paris','VéloCité Paris',1,'F','','');
 
-INSERT INTO race VALUES(NULL,'Main Race Qualification',NULL,0);
-INSERT INTO race VALUES(NULL,'Main Race Final','2010-05-16T14:00:00',0);
+INSERT INTO race VALUES(NULL,'Main Race Qualification',1,NULL,0);
+INSERT INTO race VALUES(NULL,'Main Race Final',0,NULL,0);
 -- Qualification start times
 INSERT INTO timelog VALUES(1,1,'2010-05-16T09:00:00');
 INSERT INTO timelog VALUES(1,2,'2010-05-16T09:00:30');

@@ -14,10 +14,11 @@ CREATE INDEX racer_country ON racer(country);
 CREATE INDEX racer_gender ON racer(gender);
 
 CREATE TABLE race (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-    name        TEXT NOT NULL,
-    startTime   TEXT, -- null when each racer has its own startTime
-    status      INTEGER NOT NULL DEFAULT 0 -- 0 | START | 1 | END
+    id              INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    name            TEXT NOT NULL,
+    intervalStarts  INTEGER NOT NULL CHECK (intervalStarts IN (0, 1)), -- 0 | false | 1 | true
+    startTime       TEXT CHECK (intervalStarts = 0 OR startTime IS NULL), -- null for interval starts
+    status          INTEGER NOT NULL DEFAULT 0 -- 0 | START | 1 | END
 );
 
 CREATE TABLE timelog (
