@@ -10,20 +10,12 @@
 
 3) Race closing/validation (to generate definitive results)
 =end
-BEGIN {
-  p "BEGIN";
-}
+module Model
+  Struct.new('Racer', :id, :number, :name)
+  Struct.new('Race', :id, :name, :closed, :intervalStarts, :startTime)
+  Struct.new('Timelog', :raceId, :racerId, :racerNumber, :racerName, :time)
 
-END {
-  p "END"; # FIXME Never called (linux:wmii)!
-}
-
-Struct.new('Racer', :id, :number, :name)
-Struct.new('Race', :id, :name, :closed, :intervalStarts, :startTime)
-Struct.new('Timelog', :raceId, :racerId, :time)
-
-class Model
-  def initialize
+  def load_data
     load_races()
     load_racers()
   end
@@ -46,10 +38,6 @@ class Model
     end
   end
 
-#  def reload_races
-#    load_races()
-#  end
-
   def racer_by_number(number)
     return @racers[number]
   end
@@ -63,12 +51,12 @@ class Model
     # COMMIT
     timelogs = []
     times.each do |time|
-      timelogs.push Struct::Timelog.new(race.id, racer.id, time)
+      timelogs.push Struct::Timelog.new(race.id, racer.id, racer.number, racer.name, time)
     end
-    return nil, times
+    return nil, timelogs
   end
 
-  def deleteTimeLog(timelog)
+  def delete_timelogs(timelogs)
     # DELETE FROM timelog WHERE raceId = :raceId AND racerId = :racerId AND
     # time = :time
   end
@@ -135,17 +123,18 @@ class TimeWidget < Shoes::Widget
 end
 
 # FIXME window and dialog cannot be made modal!
-
 Shoes.app :title => 'FFCMC 2010',
   :width => 220, :height => 150, :resizable => false do
-  @model = Model.new
+  extend Model
+  load_data
+
   stack do
-    @race = list_box :items => @model.races, :choose => nil, :margin => 5, :width => 1.0
+    @race = list_box :items => races(), :choose => nil, :margin => 5, :width => 1.0
     @race.change do
-      race_selected(@model.race_by_name(@race.text))
+      race_selected(race_by_name(@race.text))
     end
     @set_button = button 'Settings', :state => 'disabled', :margin => 5, :width => 1.0 do
-      window :title => "Settings", :width => 230, :height => 190, :resizable => false do
+      window :title => 'Settings', :width => 230, :height => 190 do
         @current_race = owner.current_race
         change_handler = lambda { race_changed }
         flow do
@@ -155,7 +144,7 @@ Shoes.app :title => 'FFCMC 2010',
             para 'Closed:'
           end
           stack :width => -90 do
-            para "#{@current_race.name}"
+            para @current_race.name
             @time = time_widget :state => (@current_race.intervalStarts ? 'disabled' : nil),
                 :handler => change_handler
             @time.time = @current_race.startTime
@@ -170,7 +159,7 @@ Shoes.app :title => 'FFCMC 2010',
               # TODO Allow time in the future? 
               next if time.nil?
             end
-            err_msg = owner.update_race(time, @close_check.checked?)
+            err_msg = owner.update_and_reload_race(time, @close_check.checked?)
             if err_msg.nil? then
               close()
             else
@@ -238,7 +227,7 @@ Shoes.app :title => 'FFCMC 2010',
               end_time = @end_time.time
               next if end_time.nil?
               if end_time <= start_time then
-                display_error("End time must be greater than start time!")
+                display_error('End time must be greater than start time!')
                 next
               end
             else
@@ -265,7 +254,6 @@ Shoes.app :title => 'FFCMC 2010',
 =begin Nested dialogs don't display correctly
             para link "last #{i} timelog...", :click => lambda {
               if confirm('Really delete?') then
-                # TODO
               end
             }
 =end
@@ -276,9 +264,10 @@ Shoes.app :title => 'FFCMC 2010',
         def display_timelogs(timelogs)
           @timelogs_slot.append do
             f = flow do
-              p = para "last timelog..."
+              p = para timelogs.first.racerName, ' (', timelogs.first.racerNumber, ')', ' at ', timelogs.first.time.strftime('%H:%M:%S')
               l = para '| remove'
               check :click => lambda { |c|
+                owner.delete_timelogs(timelogs)
                 p.strikethrough = 'single'
                 c.remove()
                 l.remove()
@@ -310,20 +299,13 @@ Shoes.app :title => 'FFCMC 2010',
   def current_race
     return @current_race
   end
-  def update_race(startTime, closed)
-    err_msg = @model.update_race(@current_race, startTime, closed)
+  def update_and_reload_race(startTime, closed)
+    err_msg = update_race(@current_race, startTime, closed)
     if err_msg.nil? then
       race_selected(@current_race)
       # info("Race '#{@current_race.name}' updated")
     end
     return err_msg
-  end
-  def racer_by_number(number)
-    return @model.racer_by_number(number)
-  end
-  def add_timelogs(race, racer, *times)
-    err_msg, timelogs = @model.add_timelogs(@current_race, racer, times)
-    return err_msg, timelogs
   end
 end
 # vim: set expandtab softtabstop=2 shiftwidth=2:
