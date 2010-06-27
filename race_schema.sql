@@ -16,15 +16,16 @@ CREATE INDEX racer_gender ON racer(gender);
 CREATE TABLE race (
     id              INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     name            TEXT NOT NULL,
-    intervalStarts  INTEGER NOT NULL CHECK (intervalStarts IN (0, 1)), -- 0 | false | 1 | true
-    startTime       TEXT CHECK (intervalStarts = 0 OR startTime IS NULL), -- null for interval starts
-    status          INTEGER NOT NULL DEFAULT 0 -- 0 | START | 1 | END
+    intervalStarts  BOOLEAN NOT NULL CHECK (intervalStarts IN (0, 1)), -- 0 | false | 1 | true
+    startTime       DATETIME CHECK (intervalStarts = 0 OR startTime IS NULL), -- null for interval starts
+    status          BOOLEAN NOT NULL DEFAULT 0 -- 0 | START | 1 | END
 );
+CREATE UNIQUE INDEX race_name ON race(name);
 
 CREATE TABLE timelog (
     raceId      INTEGER NOT NULL,
     racerId     INTEGER NOT NULL,
-    time        TEXT NOT NULL,
+    time        DATETIME NOT NULL,
     PRIMARY KEY (raceId, racerId, time),
     FOREIGN KEY (raceId) REFERENCES race(id), -- ON DELETE CASCADE
     FOREIGN KEY (racerId) REFERENCES racer(id) -- ON DELETE CASCADE
@@ -128,7 +129,7 @@ BEGIN
         SELECT 0, raceId, racerId, nb, duration, (SELECT count(*)
 	        FROM position p2
 	        WHERE p2.raceId = p1.raceId
-	        AND p2.nb >= p1.nb AND p2.duration <= p1.duration), NULL, NULL
+	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         WHERE raceId = NEW.raceId;
     ---- Results by country
@@ -138,7 +139,7 @@ BEGIN
             INNER JOIN racer r2 ON r2.id = p2.racerId
 	        WHERE p2.raceId = p1.raceId
             AND r2.country = r1.country
-	        AND p2.nb >= p1.nb AND p2.duration <= p1.duration), NULL, NULL
+	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         INNER JOIN racer r1 ON r1.id = p1.racerId
         WHERE raceId = NEW.raceId;
@@ -149,7 +150,7 @@ BEGIN
             INNER JOIN racer r2 ON r2.id = p2.racerId
 	        WHERE p2.raceId = p1.raceId
             AND r2.gender = r1.gender
-	        AND p2.nb >= p1.nb AND p2.duration <= p1.duration), NULL, NULL
+	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         INNER JOIN racer r1 ON r1.id = p1.racerId
         WHERE raceId = NEW.raceId;
@@ -161,7 +162,7 @@ BEGIN
 	        WHERE p2.raceId = p1.raceId
             AND r2.country = r1.country
             AND r2.gender = r1.gender
-	        AND p2.nb >= p1.nb AND p2.duration <= p1.duration), NULL, NULL
+	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         INNER JOIN racer r1 ON r1.id = p1.racerId
         WHERE raceId = NEW.raceId;
@@ -191,7 +192,7 @@ BEGIN
         SELECT 0, raceId, racerId, nb, duration, (SELECT count(*)
 	        FROM position p2
 	        WHERE p2.raceId = p1.raceId
-	        AND p2.nb >= p1.nb AND p2.duration <= p1.duration), NULL, NULL
+	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         WHERE raceId = OLD.id;
     ---- Results by country
@@ -201,7 +202,7 @@ BEGIN
             INNER JOIN racer r2 ON r2.id = p2.racerId
 	        WHERE p2.raceId = p1.raceId
             AND r2.country = r1.country
-	        AND p2.nb >= p1.nb AND p2.duration <= p1.duration), NULL, NULL
+	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         INNER JOIN racer r1 ON r1.id = p1.racerId
         WHERE raceId = OLD.id;
@@ -212,7 +213,7 @@ BEGIN
             INNER JOIN racer r2 ON r2.id = p2.racerId
 	        WHERE p2.raceId = p1.raceId
             AND r2.gender = r1.gender
-	        AND p2.nb >= p1.nb AND p2.duration <= p1.duration), NULL, NULL
+	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         INNER JOIN racer r1 ON r1.id = p1.racerId
         WHERE raceId = OLD.id;
@@ -224,7 +225,7 @@ BEGIN
 	        WHERE p2.raceId = p1.raceId
             AND r2.country = r1.country
             AND r2.gender = r1.gender
-	        AND p2.nb >= p1.nb AND p2.duration <= p1.duration), NULL, NULL
+	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         INNER JOIN racer r1 ON r1.id = p1.racerId
         WHERE raceId = OLD.id;

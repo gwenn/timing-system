@@ -1,5 +1,5 @@
 PRAGMA recursive_triggers=ON;
-UPDATE race SET status = 1 WHERE id = 1; -- trigger results generation
+-- UPDATE race SET status = 1 WHERE id = 1; -- trigger results generation
 SELECT 'Overall results';
 SELECT rank, CASE WHEN prevRank IS NULL THEN NULL
                          WHEN rank - prevRank > 0 THEN '+'

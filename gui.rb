@@ -10,6 +10,22 @@
 
 3) Race closing/validation (to generate definitive results)
 =end
+require 'sqlite3'
+
+DATABASE = SQLite3::Database.new 'race.db'
+DATABASE.type_translation = true
+DATABASE.execute_batch <<SQL
+PRAGMA foreign_keys=ON;
+PRAGMA count_changes=ON;
+PRAGMA recursive_triggers=ON;
+SQL
+
+class Time
+  def to_iso_8601
+    strftime('%Y-%m-%d %H:%M:%S')
+  end
+end
+
 module Model
   Struct.new('Racer', :id, :number, :name)
   Struct.new('Race', :id, :name, :closed, :intervalStarts, :startTime)
@@ -27,15 +43,21 @@ module Model
   def race_by_name(name)
     return @races[name]
   end
-  
+
   def update_race(race, startTime, closed)
     if race.startTime != startTime || race.closed != closed then
-      race.startTime = startTime
-      race.closed = closed
-      # UPDATE race SET startTime = :startTime, status = :status WHERE id =
-      # :id
-      return nil # err_msg or nil
+      begin
+        DATABASE.execute('UPDATE race SET startTime = ?, status = ? WHERE id = ?',
+                         startTime.nil? ? nil : startTime.to_iso_8601, closed ? 1 : 0, race.id)
+        race.startTime = startTime
+        race.closed = closed
+      rescue Exception => e then
+        return e
+      else
+        return nil
+      end
     end
+    nil
   end
 
   def racer_by_number(number)
@@ -44,32 +66,54 @@ module Model
 
   def add_timelogs(race, racer, *times)
     # TODO One racer can be filled only once (=> max two entries in the
-    # timelog) for Qualif. 
-    # BEGIN TRANSACTION
-    # INSERT INTO timelog VALUES (:raceId, :racerId, :time)
-    # ...
-    # COMMIT
+    # timelog) for Qualif.
     timelogs = []
-    times.each do |time|
-      timelogs.push Struct::Timelog.new(race.id, racer.id, racer.number, racer.name, time)
+    begin
+      DATABASE.transaction do |db|
+        db.prepare('INSERT INTO timelog VALUES (?, ?, ?)') do |stmt|
+          times.each do |time|
+            stmt.execute(race.id, racer.id, time.to_iso_8601)
+            timelogs.push Struct::Timelog.new(race.id, racer.id, racer.number, racer.name, time)
+          end
+        end
+      end
+    rescue Exception => e then
+      return e, nil
+    else
+      return nil, timelogs
     end
-    return nil, timelogs
   end
 
   def delete_timelogs(timelogs)
-    # DELETE FROM timelog WHERE raceId = :raceId AND racerId = :racerId AND
-    # time = :time
+    begin
+      DATABASE.transaction do |db|
+        timelogs.each do |t|
+          db.execute('DELETE FROM timelog WHERE raceId = ? AND racerId = ? AND time = ?', t.raceId, t.racerId, t.time.to_iso_8601)
+        end
+      end
+    rescue Exception => e then
+      return e
+    else
+      return nil
+    end
   end
 
   private
   def load_races
-    @races = { 'Main Race Qualif' => Struct::Race.new(1, 'Main Race Qualif', true, true, nil),
-      'Main Race Final' => Struct::Race.new(2, 'Main Race Final', false, false, nil) }
+    @races = {}
+    DATABASE.execute( "SELECT id, name, status, intervalStarts, startTime FROM race" ) do |row|
+      @races[row[1]] = Struct::Race.new(row[0], row[1], row[2], row[3], row[4])
+    end
   end
 
   def load_racers
-    @racers = { 1 => Struct::Racer.new(1, 1, 'A'),
-      2 => Struct::Racer.new(2, 2, 'B') }
+    @racers = {}
+    DATABASE.execute( "SELECT id, number, firstName, lastName FROM racer" ) do |row|
+      names = row[2, 2]
+      names.compact!
+      names.delete('')
+      @racers[row[1]] = Struct::Racer.new(row[0], row[1], names.join(' '))
+    end
   end
 end
 
@@ -99,7 +143,7 @@ class TimeWidget < Shoes::Widget
       return nil
     end
     # TODO Are seconds mandatory?
-    if @sec.text !~ /^\d{2}$/ || (not (0..59).include? @sec.text.to_i) then
+    if not (@sec.text.empty? || (@sec.text =~ /^\d{2}$/ && (0..59).include?(@sec.text.to_i))) then
       @sec.focus()
       return nil
     end
@@ -134,7 +178,7 @@ Shoes.app :title => 'FFCMC 2010',
       race_selected(race_by_name(@race.text))
     end
     @set_button = button 'Settings', :state => 'disabled', :margin => 5, :width => 1.0 do
-      window :title => 'Settings', :width => 230, :height => 190 do
+      window :title => 'Settings', :width => 280, :height => 190 do
         @current_race = owner.current_race
         change_handler = lambda { race_changed }
         flow do
@@ -156,7 +200,7 @@ Shoes.app :title => 'FFCMC 2010',
           @ok_button = button 'Ok', :state => 'disabled', :margin => 5, :width => 0.5 do
             if not @current_race.intervalStarts then
               time = @time.time
-              # TODO Allow time in the future? 
+              # TODO Allow time in the future?
               next if time.nil?
             end
             err_msg = owner.update_and_reload_race(time, @close_check.checked?)
@@ -247,7 +291,7 @@ Shoes.app :title => 'FFCMC 2010',
             end
           end
           # TODO Useful?
-          button 'Reset', :margin => 5, :width => 0.3, :click => reset_action 
+          button 'Reset', :margin => 5, :width => 0.3, :click => reset_action
           button 'Close', :margin => 5, :width => 0.3, :click => lambda { close() }
         end
         @timelogs_slot = stack :width => 1.0, :height => 150, :scroll => true do
@@ -267,10 +311,14 @@ Shoes.app :title => 'FFCMC 2010',
               p = para timelogs.first.racerName, ' (', timelogs.first.racerNumber, ')', ' at ', timelogs.first.time.strftime('%H:%M:%S')
               l = para '| remove'
               check :click => lambda { |c|
-                owner.delete_timelogs(timelogs)
-                p.strikethrough = 'single'
-                c.remove()
-                l.remove()
+                err_msg = owner.delete_timelogs(timelogs)
+                if err_msg.nil? then
+                  p.strikethrough = 'single'
+                  c.remove()
+                  l.remove()
+                else
+                  display_error(err_msg)
+                end
               }
             end
             @timelogs.unshift f
