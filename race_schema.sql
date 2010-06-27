@@ -233,9 +233,3 @@ BEGIN
     -- Remove intermediary data/stats
     -- DELETE FROM position WHERE raceId = OLD.id;
 END;
-
-/*
-PRAGMA count_changes;
-PRAGMA foreign_keys;
-PRAGMA recursive_triggers;
-*/
