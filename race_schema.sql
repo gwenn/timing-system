@@ -26,6 +26,7 @@ CREATE TABLE timelog (
     raceId      INTEGER NOT NULL,
     racerId     INTEGER NOT NULL,
     time        DATETIME NOT NULL,
+    type        INTEGER NOT NULL DEFAULT 0 CHECK (type >= 0), -- 0 | START | ...
     PRIMARY KEY (raceId, racerId, time),
     FOREIGN KEY (raceId) REFERENCES race(id), -- ON DELETE CASCADE
     FOREIGN KEY (racerId) REFERENCES racer(id) -- ON DELETE CASCADE
@@ -113,7 +114,8 @@ END;
 
 CREATE TRIGGER results_generation AFTER INSERT ON timelog
 -- TODO Adjust delay (every minute)?
-WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 1) IS NULL
+WHEN NEW.type <> 0 -- Prevent result update when a start time is inserted.
+AND (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 1) IS NULL -- Prevent result update for closed race
 AND (SELECT 1 FROM resultVersion v WHERE v.raceId = NEW.raceId AND (strftime('%s','now') - v.time) < 60) IS NULL
 BEGIN
     -- Create intermediary data/stats
@@ -234,3 +236,4 @@ BEGIN
     -- Remove intermediary data/stats
     -- DELETE FROM position WHERE raceId = OLD.id;
 END;
+-- vim: set expandtab softtabstop=4 shiftwidth=4:

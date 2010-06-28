@@ -20,16 +20,10 @@ PRAGMA count_changes=ON;
 PRAGMA recursive_triggers=ON;
 SQL
 
-class Time
-  def to_iso_8601
-    strftime('%Y-%m-%d %H:%M:%S')
-  end
-end
-
 module Model
   Struct.new('Racer', :id, :number, :name)
   Struct.new('Race', :id, :name, :closed, :intervalStarts, :startTime)
-  Struct.new('Timelog', :raceId, :racerId, :racerNumber, :racerName, :time)
+  Struct.new('Timelog', :raceId, :racerId, :racerNumber, :racerName, :time, :type)
 
   def load_data
     load_races()
@@ -48,7 +42,7 @@ module Model
     if race.startTime != startTime || race.closed != closed then
       begin
         DATABASE.execute('UPDATE race SET startTime = ?, status = ? WHERE id = ?',
-                         startTime.nil? ? nil : startTime.to_iso_8601, closed ? 1 : 0, race.id)
+                         to_iso_8601(startTime), closed ? 1 : 0, race.id)
         race.startTime = startTime
         race.closed = closed
       rescue Exception => e then
@@ -70,10 +64,12 @@ module Model
     timelogs = []
     begin
       DATABASE.transaction do |db|
-        db.prepare('INSERT INTO timelog VALUES (?, ?, ?)') do |stmt|
-          times.each do |time|
-            stmt.execute(race.id, racer.id, time.to_iso_8601)
-            timelogs.push Struct::Timelog.new(race.id, racer.id, racer.number, racer.name, time)
+        db.prepare('INSERT INTO timelog VALUES (?, ?, ?, ?)') do |stmt|
+          times.each_index do |i|
+            time = times[i]
+            type = (i == 0 && race.intervalStarts) ? 0 : 1
+            stmt.execute(race.id, racer.id, to_iso_8601(time), type)
+            timelogs.push Struct::Timelog.new(race.id, racer.id, racer.number, racer.name, time, type)
           end
         end
       end
@@ -88,7 +84,8 @@ module Model
     begin
       DATABASE.transaction do |db|
         timelogs.each do |t|
-          db.execute('DELETE FROM timelog WHERE raceId = ? AND racerId = ? AND time = ?', t.raceId, t.racerId, t.time.to_iso_8601)
+          db.execute('DELETE FROM timelog WHERE raceId = ? AND racerId = ? AND time = ?',
+                     t.raceId, t.racerId, to_iso_8601(t.time))
         end
       end
     rescue Exception => e then
@@ -114,6 +111,10 @@ module Model
       names.delete('')
       @racers[row[1]] = Struct::Racer.new(row[0], row[1], names.join(' '))
     end
+  end
+
+  def to_iso_8601(time)
+      time.strftime('%Y-%m-%d %H:%M:%S') unless time.nil?
   end
 end
 
@@ -306,9 +307,11 @@ Shoes.app :title => 'FFCMC 2010',
 
         @timelogs = []
         def display_timelogs(timelogs)
-          @timelogs_slot.append do
+          @timelogs_slot.prepend do
             f = flow do
-              p = para timelogs.first.racerName, ' (', timelogs.first.racerNumber, ')', ' at ', timelogs.first.time.strftime('%H:%M:%S')
+              p = para timelogs.first.racerName, ' (', timelogs.first.racerNumber, ')',
+                ' : ', timelogs.first.time.strftime('%H:%M:%S'),
+                (@current_race.intervalStarts ? ' - ' +timelogs[1].time.strftime('%H:%M:%S') : '')
               l = para '| remove'
               check :click => lambda { |c|
                 err_msg = owner.delete_timelogs(timelogs)
@@ -336,7 +339,7 @@ Shoes.app :title => 'FFCMC 2010',
   def race_selected(race)
     @current_race = race
     @set_button.state = nil if @set_button.state == 'disabled'
-    if not @current_race.closed then
+    if (not @current_race.closed) && (@current_race.intervalStarts || (not @current_race.startTime.nil?)) then
       @manifests_button.state = nil
     else
       @manifests_button.state = 'disabled'
@@ -355,5 +358,6 @@ Shoes.app :title => 'FFCMC 2010',
     end
     return err_msg
   end
+  #Shoes.show_log
 end
 # vim: set expandtab softtabstop=2 shiftwidth=2:
