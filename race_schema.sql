@@ -77,13 +77,15 @@ CREATE TABLE resultHisto (
 );
 
 CREATE TRIGGER result_backup AFTER DELETE ON result
-WHEN (SELECT 1 FROM race r WHERE r.id = OLD.raceId AND r.status = 1) IS NULL
+-- no rank progression needed when a race is closed or during qualifications
+WHEN (SELECT 1 FROM race r WHERE r.id = OLD.raceId AND (r.status = 1 OR r.intervalStarts = 1)) IS NULL
 BEGIN
     REPLACE INTO resultHisto VALUES (OLD.type, OLD.raceId, OLD.racerId, OLD.rank, OLD.prevRank, OLD.latency);
 END;
 
 CREATE TRIGGER rank_progression AFTER INSERT ON result
-WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 1) IS NULL
+-- no rank progression needed when a race is closed or during qualifications
+WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND (r.status = 1 OR r.intervalStarts = 1)) IS NULL
 BEGIN
     -- TODO Adjust latency...
     UPDATE result SET
@@ -113,9 +115,9 @@ BEGIN
 END;
 
 CREATE TRIGGER results_generation AFTER INSERT ON timelog
--- TODO Adjust delay (every minute)?
 WHEN NEW.type <> 0 -- Prevent result update when a start time is inserted.
 AND (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 1) IS NULL -- Prevent result update for closed race
+-- TODO Adjust delay (every minute)?
 AND (SELECT 1 FROM resultVersion v WHERE v.raceId = NEW.raceId AND (strftime('%s','now') - v.time) < 60) IS NULL
 BEGIN
     -- Create intermediary data/stats
@@ -180,7 +182,7 @@ CREATE TRIGGER race_end AFTER UPDATE OF status ON race
 WHEN NEW.status = 1
 BEGIN
     DELETE FROM resultHisto WHERE raceId = OLD.id; -- TODO Validate
--- TODO Keep synchronized with results_generation
+-- XXX Keep synchronized with results_generation
     -- Create intermediary data/stats
     DELETE FROM position WHERE raceId = OLD.id;
     INSERT INTO position SELECT raceId, racerId, count(1),

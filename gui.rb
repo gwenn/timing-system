@@ -11,112 +11,9 @@
 3) Race closing/validation (to generate definitive results)
 =end
 require 'sqlite3'
+require 'model'
 
 DATABASE = SQLite3::Database.new 'race.db'
-DATABASE.type_translation = true
-DATABASE.execute_batch <<SQL
-PRAGMA foreign_keys=ON;
-PRAGMA count_changes=ON;
-PRAGMA recursive_triggers=ON;
-SQL
-
-module Model
-  Struct.new('Racer', :id, :number, :name)
-  Struct.new('Race', :id, :name, :closed, :intervalStarts, :startTime)
-  Struct.new('Timelog', :raceId, :racerId, :racerNumber, :racerName, :time, :type)
-
-  def load_data
-    load_races()
-    load_racers()
-  end
-
-  def races
-    return @races.keys
-  end
-
-  def race_by_name(name)
-    return @races[name]
-  end
-
-  def update_race(race, startTime, closed)
-    if race.startTime != startTime || race.closed != closed then
-      begin
-        DATABASE.execute('UPDATE race SET startTime = ?, status = ? WHERE id = ?',
-                         to_iso_8601(startTime), closed ? 1 : 0, race.id)
-        race.startTime = startTime
-        race.closed = closed
-      rescue Exception => e then
-        return e
-      else
-        return nil
-      end
-    end
-    nil
-  end
-
-  def racer_by_number(number)
-    return @racers[number]
-  end
-
-  def add_timelogs(race, racer, *times)
-    # TODO One racer can be filled only once (=> max two entries in the
-    # timelog) for Qualif.
-    timelogs = []
-    begin
-      DATABASE.transaction do |db|
-        db.prepare('INSERT INTO timelog VALUES (?, ?, ?, ?)') do |stmt|
-          times.each_index do |i|
-            time = times[i]
-            type = (i == 0 && race.intervalStarts) ? 0 : 1
-            stmt.execute(race.id, racer.id, to_iso_8601(time), type)
-            timelogs.push Struct::Timelog.new(race.id, racer.id, racer.number, racer.name, time, type)
-          end
-        end
-      end
-    rescue Exception => e then
-      return e, nil
-    else
-      return nil, timelogs
-    end
-  end
-
-  def delete_timelogs(timelogs)
-    begin
-      DATABASE.transaction do |db|
-        timelogs.each do |t|
-          db.execute('DELETE FROM timelog WHERE raceId = ? AND racerId = ? AND time = ?',
-                     t.raceId, t.racerId, to_iso_8601(t.time))
-        end
-      end
-    rescue Exception => e then
-      return e
-    else
-      return nil
-    end
-  end
-
-  private
-  def load_races
-    @races = {}
-    DATABASE.execute( "SELECT id, name, status, intervalStarts, startTime FROM race" ) do |row|
-      @races[row[1]] = Struct::Race.new(row[0], row[1], row[2], row[3], row[4])
-    end
-  end
-
-  def load_racers
-    @racers = {}
-    DATABASE.execute( "SELECT id, number, firstName, lastName FROM racer" ) do |row|
-      names = row[2, 2]
-      names.compact!
-      names.delete('')
-      @racers[row[1]] = Struct::Racer.new(row[0], row[1], names.join(' '))
-    end
-  end
-
-  def to_iso_8601(time)
-      time.strftime('%Y-%m-%d %H:%M:%S') unless time.nil?
-  end
-end
 
 class TimeWidget < Shoes::Widget
   # TODO Auto-next when previous field is filled
@@ -171,7 +68,7 @@ end
 Shoes.app :title => 'FFCMC 2010',
   :width => 220, :height => 150, :resizable => false do
   extend Model
-  load_data
+  setup(DATABASE)
 
   stack do
     @race = list_box :items => races(), :choose => nil, :margin => 5, :width => 1.0
@@ -278,6 +175,10 @@ Shoes.app :title => 'FFCMC 2010',
             else
               end_time = @end_time.time
               next if end_time.nil?
+              if end_time <= @current_race.startTime then
+                display_error('End time must be greater than start time!')
+                next
+              end
             end
             if @current_race.intervalStarts then
               err_msg, timelogs = owner.add_timelogs(@current_race, racer, start_time, end_time)
