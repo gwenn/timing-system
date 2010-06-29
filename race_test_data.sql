@@ -1,5 +1,4 @@
 PRAGMA foreign_keys=ON;
-PRAGMA recursive_triggers=ON;
 BEGIN TRANSACTION;
 INSERT INTO racer VALUES(NULL,1,'FRA','Paris','Urban cycle',1,'A','','');
 INSERT INTO racer VALUES(NULL,2,'FRA','Paris','Urban cycle',1,'B','','');

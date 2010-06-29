@@ -98,17 +98,22 @@ BEGIN
     WHERE type = NEW.type AND raceId = NEW.raceId AND racerId = NEW.racerId;
 END;
 
-CREATE TRIGGER closed_race_lock1 AFTER INSERT ON timelog
+CREATE TRIGGER not_started_race_lock BEFORE INSERT ON timelog
+WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 0 AND r.intervalStarts = 0 AND r.startTime IS NULL) IS NOT NULL
+BEGIN
+    SELECT RAISE(FAIL, 'No timelog can be inserted until race start time is specified.');
+END;
+CREATE TRIGGER closed_race_lock1 BEFORE INSERT ON timelog
 WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 1) IS NOT NULL
 BEGIN
     SELECT RAISE(FAIL, 'No timelog can be inserted for a closed race.');
 END;
-CREATE TRIGGER closed_race_lock2 AFTER UPDATE ON timelog
+CREATE TRIGGER closed_race_lock2 BEFORE UPDATE ON timelog
 WHEN (SELECT 1 FROM race r WHERE r.id = OLD.raceId AND r.status = 1) IS NOT NULL
 BEGIN
     SELECT RAISE(FAIL, 'No timelog can be upated for a closed race.');
 END;
-CREATE TRIGGER closed_race_lock3 AFTER DELETE ON timelog
+CREATE TRIGGER closed_race_lock3 BEFORE DELETE ON timelog
 WHEN (SELECT 1 FROM race r WHERE r.id = OLD.raceId AND r.status = 1) IS NOT NULL
 BEGIN
     SELECT RAISE(FAIL, 'No timelog can be deleted for a closed race.');
@@ -131,42 +136,42 @@ BEGIN
     ---- Overall results
     REPLACE INTO result
         SELECT 0, raceId, racerId, nb, duration, (SELECT count(*)
-	        FROM position p2
-	        WHERE p2.raceId = p1.raceId
-	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
+            FROM position p2
+            WHERE p2.raceId = p1.raceId
+            AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         WHERE raceId = NEW.raceId;
     ---- Results by country
     REPLACE INTO result
         SELECT 1, raceId, racerId, nb, duration, (SELECT count(*)
-	        FROM position p2
+            FROM position p2
             INNER JOIN racer r2 ON r2.id = p2.racerId
-	        WHERE p2.raceId = p1.raceId
+            WHERE p2.raceId = p1.raceId
             AND r2.country = r1.country
-	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
+            AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         INNER JOIN racer r1 ON r1.id = p1.racerId
         WHERE raceId = NEW.raceId;
     ---- Results by gender
     REPLACE INTO result
         SELECT 2, raceId, racerId, nb, duration, (SELECT count(*)
-	        FROM position p2
+            FROM position p2
             INNER JOIN racer r2 ON r2.id = p2.racerId
-	        WHERE p2.raceId = p1.raceId
+            WHERE p2.raceId = p1.raceId
             AND r2.gender = r1.gender
-	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
+            AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         INNER JOIN racer r1 ON r1.id = p1.racerId
         WHERE raceId = NEW.raceId;
     ---- Results by country and gender
     REPLACE INTO result
         SELECT 3, raceId, racerId, nb, duration, (SELECT count(*)
-	        FROM position p2
+            FROM position p2
             INNER JOIN racer r2 ON r2.id = p2.racerId
-	        WHERE p2.raceId = p1.raceId
+            WHERE p2.raceId = p1.raceId
             AND r2.country = r1.country
             AND r2.gender = r1.gender
-	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
+            AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         INNER JOIN racer r1 ON r1.id = p1.racerId
         WHERE raceId = NEW.raceId;
@@ -194,42 +199,42 @@ BEGIN
     ---- Overall results
     REPLACE INTO result
         SELECT 0, raceId, racerId, nb, duration, (SELECT count(*)
-	        FROM position p2
-	        WHERE p2.raceId = p1.raceId
-	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
+            FROM position p2
+            WHERE p2.raceId = p1.raceId
+            AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         WHERE raceId = OLD.id;
     ---- Results by country
     REPLACE INTO result
         SELECT 1, raceId, racerId, nb, duration, (SELECT count(*)
-	        FROM position p2
+            FROM position p2
             INNER JOIN racer r2 ON r2.id = p2.racerId
-	        WHERE p2.raceId = p1.raceId
+            WHERE p2.raceId = p1.raceId
             AND r2.country = r1.country
-	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
+            AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         INNER JOIN racer r1 ON r1.id = p1.racerId
         WHERE raceId = OLD.id;
     ---- Results by gender
     REPLACE INTO result
         SELECT 2, raceId, racerId, nb, duration, (SELECT count(*)
-	        FROM position p2
+            FROM position p2
             INNER JOIN racer r2 ON r2.id = p2.racerId
-	        WHERE p2.raceId = p1.raceId
+            WHERE p2.raceId = p1.raceId
             AND r2.gender = r1.gender
-	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
+            AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         INNER JOIN racer r1 ON r1.id = p1.racerId
         WHERE raceId = OLD.id;
     ---- Results by country and gender
     REPLACE INTO result
         SELECT 3, raceId, racerId, nb, duration, (SELECT count(*)
-	        FROM position p2
+            FROM position p2
             INNER JOIN racer r2 ON r2.id = p2.racerId
-	        WHERE p2.raceId = p1.raceId
+            WHERE p2.raceId = p1.raceId
             AND r2.country = r1.country
             AND r2.gender = r1.gender
-	        AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
+            AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         INNER JOIN racer r1 ON r1.id = p1.racerId
         WHERE raceId = OLD.id;

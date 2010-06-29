@@ -68,7 +68,7 @@ end
 Shoes.app :title => 'FFCMC 2010',
   :width => 220, :height => 150, :resizable => false do
   extend Model
-  setup(DATABASE)
+  init_model(DATABASE)
 
   stack do
     @race = list_box :items => races(), :choose => nil, :margin => 5, :width => 1.0
