@@ -50,7 +50,7 @@ CREATE TABLE resultVersion (
 );
 
 CREATE TABLE result (
-    type        INTEGER NOT NULL, -- 0 | Overall | 1 | Country | 2 | Gender | 3 | Country and Gender | ...
+    type        INTEGER NOT NULL, -- 0 | Overall by gender | 1 | Country and Gender | ...
     raceId      INTEGER NOT NULL,
     racerId     INTEGER NOT NULL,
     nb          INTEGER NOT NULL CHECK (nb >= 0), -- Number of manifests
@@ -103,6 +103,17 @@ WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 0 AND r.interv
 BEGIN
     SELECT RAISE(FAIL, 'No timelog can be inserted until race start time is specified.');
 END;
+CREATE TRIGGER no_time_before_start_time_check BEFORE INSERT ON timelog
+WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 0 AND r.intervalStarts = 0
+    AND r.startTime IS NOT NULL AND strftime('%s', r.startTime) >= strftime('%s', NEW.time)) IS NOT NULL
+BEGIN
+    SELECT RAISE(FAIL, 'No timelog can be inserted with a time lesser than race start time.');
+END
+CREATE TRIGGER max_two_timelogs_check BEFORE INSERT ON timelog
+WHEN (SELECT count(1) FROM timelog t WHERE t.raceId = NEW.raceId AND t.racerId = NEW.racerId) = 2
+BEGIN
+    SELECT RAISE(FAIL, 'Only two timelogs expected during qualifications.');
+END
 CREATE TRIGGER closed_race_lock1 BEFORE INSERT ON timelog
 WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 1) IS NOT NULL
 BEGIN
@@ -133,28 +144,9 @@ BEGIN
         INNER JOIN race on race.id = timelog.raceId
         WHERE raceId = NEW.raceId GROUP BY racerId;
     -- Generate results
-    ---- Overall results
-    REPLACE INTO result
-        SELECT 0, raceId, racerId, nb, duration, (SELECT count(*)
-            FROM position p2
-            WHERE p2.raceId = p1.raceId
-            AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
-        FROM position p1
-        WHERE raceId = NEW.raceId;
-    ---- Results by country
-    REPLACE INTO result
-        SELECT 1, raceId, racerId, nb, duration, (SELECT count(*)
-            FROM position p2
-            INNER JOIN racer r2 ON r2.id = p2.racerId
-            WHERE p2.raceId = p1.raceId
-            AND r2.country = r1.country
-            AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
-        FROM position p1
-        INNER JOIN racer r1 ON r1.id = p1.racerId
-        WHERE raceId = NEW.raceId;
     ---- Results by gender
     REPLACE INTO result
-        SELECT 2, raceId, racerId, nb, duration, (SELECT count(*)
+        SELECT 0, raceId, racerId, nb, duration, (SELECT count(*)
             FROM position p2
             INNER JOIN racer r2 ON r2.id = p2.racerId
             WHERE p2.raceId = p1.raceId
@@ -165,7 +157,7 @@ BEGIN
         WHERE raceId = NEW.raceId;
     ---- Results by country and gender
     REPLACE INTO result
-        SELECT 3, raceId, racerId, nb, duration, (SELECT count(*)
+        SELECT 1, raceId, racerId, nb, duration, (SELECT count(*)
             FROM position p2
             INNER JOIN racer r2 ON r2.id = p2.racerId
             WHERE p2.raceId = p1.raceId
@@ -174,7 +166,7 @@ BEGIN
             AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         INNER JOIN racer r1 ON r1.id = p1.racerId
-        WHERE raceId = NEW.raceId;
+        WHERE raceId = NEW.raceId AND r1.country in ('FIN', 'FRA');
     -- Update last time results generation to now
     REPLACE INTO resultVersion VALUES (NEW.raceId, strftime('%s','now'));
     -- Remove intermediary data/stats
@@ -196,28 +188,9 @@ BEGIN
         INNER JOIN race on race.id = timelog.raceId
         WHERE raceId = OLD.id GROUP BY racerId;
     -- Generate results
-    ---- Overall results
-    REPLACE INTO result
-        SELECT 0, raceId, racerId, nb, duration, (SELECT count(*)
-            FROM position p2
-            WHERE p2.raceId = p1.raceId
-            AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
-        FROM position p1
-        WHERE raceId = OLD.id;
-    ---- Results by country
-    REPLACE INTO result
-        SELECT 1, raceId, racerId, nb, duration, (SELECT count(*)
-            FROM position p2
-            INNER JOIN racer r2 ON r2.id = p2.racerId
-            WHERE p2.raceId = p1.raceId
-            AND r2.country = r1.country
-            AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
-        FROM position p1
-        INNER JOIN racer r1 ON r1.id = p1.racerId
-        WHERE raceId = OLD.id;
     ---- Results by gender
     REPLACE INTO result
-        SELECT 2, raceId, racerId, nb, duration, (SELECT count(*)
+        SELECT 0, raceId, racerId, nb, duration, (SELECT count(*)
             FROM position p2
             INNER JOIN racer r2 ON r2.id = p2.racerId
             WHERE p2.raceId = p1.raceId
@@ -228,7 +201,7 @@ BEGIN
         WHERE raceId = OLD.id;
     ---- Results by country and gender
     REPLACE INTO result
-        SELECT 3, raceId, racerId, nb, duration, (SELECT count(*)
+        SELECT 1, raceId, racerId, nb, duration, (SELECT count(*)
             FROM position p2
             INNER JOIN racer r2 ON r2.id = p2.racerId
             WHERE p2.raceId = p1.raceId
@@ -237,7 +210,7 @@ BEGIN
             AND (p2.nb > p1.nb OR (p2.nb = p1.nb AND p2.duration <= p1.duration))), NULL, NULL
         FROM position p1
         INNER JOIN racer r1 ON r1.id = p1.racerId
-        WHERE raceId = OLD.id;
+        WHERE raceId = OLD.id AND r1.country in ('FIN', 'FRA');
     -- Update last time results generation to now
     REPLACE INTO resultVersion VALUES (OLD.id, strftime('%s','now'));
     -- Remove intermediary data/stats
