@@ -1,0 +1,5 @@
+PRAGMA foreign_keys=ON;
+BEGIN TRANSACTION;
+INSERT INTO race VALUES(NULL,'Main Race Qualification',1,NULL,0);
+INSERT INTO race VALUES(NULL,'Main Race Final',0,NULL,0);
+COMMIT;

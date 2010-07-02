@@ -108,12 +108,13 @@ WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 0 AND r.interv
     AND r.startTime IS NOT NULL AND strftime('%s', r.startTime) >= strftime('%s', NEW.time)) IS NOT NULL
 BEGIN
     SELECT RAISE(FAIL, 'No timelog can be inserted with a time lesser than race start time.');
-END
+END;
 CREATE TRIGGER max_two_timelogs_check BEFORE INSERT ON timelog
 WHEN (SELECT count(1) FROM timelog t WHERE t.raceId = NEW.raceId AND t.racerId = NEW.racerId) = 2
 BEGIN
     SELECT RAISE(FAIL, 'Only two timelogs expected during qualifications.');
-END
+END;
+
 CREATE TRIGGER closed_race_lock1 BEFORE INSERT ON timelog
 WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 1) IS NOT NULL
 BEGIN
