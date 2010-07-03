@@ -87,8 +87,8 @@ SQL
   
   RESULTS_QUERY = <<SQL
 SELECT rank, nb, CASE WHEN prevRank IS NULL THEN NULL
-                         WHEN rank - prevRank > 0 THEN '+'
-                         WHEN rank - prevRank < 0 THEN '-'
+                         WHEN rank - prevRank > 0 THEN '-'
+                         WHEN rank - prevRank < 0 THEN '+'
                          ELSE '=' END as delta, time(duration, 'unixepoch'), number, firstName, lastName, company, city, country,
        CASE gender WHEN 1 THEN 'M' ELSE 'F' END AS g
 FROM result
