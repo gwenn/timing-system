@@ -78,7 +78,7 @@ Shoes.app :title => 'FFCMC 2010',
     @set_button = button 'Settings', :state => 'disabled', :margin => 5, :width => 1.0 do
       window :title => 'Settings', :width => 280, :height => 190 do
         @current_race = owner.current_race
-        change_handler = lambda { race_changed }
+        change_handler = proc { |src| race_changed }
         flow do
           stack :width => 90 do
             para 'Name:'
@@ -109,9 +109,9 @@ Shoes.app :title => 'FFCMC 2010',
               @error.replace(err_msg[0,60])
             end
           end
-          @cancel_button = button 'Cancel', :margin => 5, :width => 0.5, :click => lambda { close() }
+          @cancel_button = button 'Cancel', :margin => 5, :width => 0.5, :click => proc { |src| close() }
         end
-        @error = para :stroke => red, :underline => 'single', :click => lambda { Shoes.show_log }
+        @error = para :stroke => red, :underline => 'single', :click => proc { |src| Shoes.show_log }
 
         def race_changed
           @ok_button.state = nil if @ok_button.state == 'disabled'
@@ -140,7 +140,7 @@ Shoes.app :title => 'FFCMC 2010',
           end
         end
         flow do
-          reset_action = lambda {
+          reset_action = proc { |src|
             @racer_number.text = nil
             if @current_race.intervalStarts then
               @start_time.time = nil
@@ -194,17 +194,17 @@ Shoes.app :title => 'FFCMC 2010',
           end
           # TODO Useful?
           button 'Reset', :margin => 5, :width => 0.3, :click => reset_action
-          button 'Close', :margin => 5, :width => 0.3, :click => lambda { close() }
+          button 'Close', :margin => 5, :width => 0.3, :click => proc { |src| close() }
         end
         @timelogs_slot = stack :width => 1.0, :height => 150, :scroll => true do
 =begin Nested dialogs don't display correctly
-            para link "last #{i} timelog...", :click => lambda {
+            para link "last #{i} timelog...", :click => proc {
               if confirm('Really delete?') then
               end
             }
 =end
         end
-        @error = para :stroke => red, :underline => 'single', :click => lambda { Shoes.show_log }
+        @error = para :stroke => red, :underline => 'single', :click => proc { |src| Shoes.show_log }
 
         @timelogs = []
         def display_timelogs(timelogs)
@@ -214,7 +214,7 @@ Shoes.app :title => 'FFCMC 2010',
                 ' : ', timelogs.first.time.strftime('%H:%M:%S'),
                 (@current_race.intervalStarts ? ' - ' +timelogs[1].time.strftime('%H:%M:%S') : '')
               l = para '| remove'
-              check :click => lambda { |c|
+              check :click => proc { |c|
                 err_msg = owner.delete_timelogs(timelogs)
                 if err_msg.nil? then
                   p.strikethrough = 'single'

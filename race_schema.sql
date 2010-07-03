@@ -17,7 +17,7 @@ CREATE TABLE race (
     id              INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     name            TEXT NOT NULL,
     intervalStarts  BOOLEAN NOT NULL CHECK (intervalStarts IN (0, 1)), -- 0 | false | 1 | true
-    startTime       DATETIME CHECK (intervalStarts = 0 OR startTime IS NULL), -- null for interval starts
+    startTime       TIME CHECK (intervalStarts = 0 OR startTime IS NULL), -- null for interval starts
     status          BOOLEAN NOT NULL DEFAULT 0 -- 0 | START | 1 | END
 );
 CREATE UNIQUE INDEX race_name ON race(name);
@@ -25,7 +25,7 @@ CREATE UNIQUE INDEX race_name ON race(name);
 CREATE TABLE timelog (
     raceId      INTEGER NOT NULL,
     racerId     INTEGER NOT NULL,
-    time        DATETIME NOT NULL,
+    time        TIME NOT NULL,
     type        INTEGER NOT NULL DEFAULT 0 CHECK (type >= 0), -- 0 | START | ...
     PRIMARY KEY (raceId, racerId, time),
     FOREIGN KEY (raceId) REFERENCES race(id), -- ON DELETE CASCADE
