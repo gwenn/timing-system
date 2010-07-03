@@ -110,7 +110,8 @@ BEGIN
     SELECT RAISE(FAIL, 'No timelog can be inserted with a time lesser than race start time.');
 END;
 CREATE TRIGGER max_two_timelogs_check BEFORE INSERT ON timelog
-WHEN (SELECT count(1) FROM timelog t WHERE t.raceId = NEW.raceId AND t.racerId = NEW.racerId) = 2
+WHEN (SELECT count(1) FROM timelog t INNER JOIN race r ON r.id = t.raceId
+    WHERE t.raceId = NEW.raceId AND t.racerId = NEW.racerId AND r.intervalStarts = 1) = 2
 BEGIN
     SELECT RAISE(FAIL, 'Only two timelogs expected during qualifications.');
 END;

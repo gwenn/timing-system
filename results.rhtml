@@ -1,0 +1,38 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+          "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>FFCMC 2010 - <%= @race.name %> - <%= @results_title %></title>
+    <script type="text/javascript">
+    // TODO Adjust delay
+    // window.onload = window.setTimeout(display_next_screen, 10 * 1000, 1);
+    function display_next_screen(n) {
+      window.location.search = '?p=' + n;
+    }
+    </script>
+  </head>
+  <body>
+    <h1>FFCMC 2010 - <%= @race.name %></h1>
+    <h2><%= @results_title %></h2>
+    <table>
+      <thead>
+        <td>Rank</td>
+        <!-- Optional (useless during qualifications and for closed races  -->
+        <td>Prev. Rank</td>
+        <!-- Optional: Only for finals -->
+        <td>Manifests</td>
+        <td>Time</td>
+        <td>Number</td>
+        <td>Name</td>
+        <td>Company</td>
+        <td>City</td>
+        <td>Country</td>
+      </thead>
+      <tr>
+        <!-- ... -->
+      </tr>
+    </table>
+  </body>
+</html>
+<!-- vim: set expandtab softtabstop=2 shiftwidth=2: -->

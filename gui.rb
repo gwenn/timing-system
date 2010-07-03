@@ -187,7 +187,7 @@ Shoes.app :title => 'FFCMC 2010',
             end
             if err_msg.nil? then
               display_timelogs(timelogs)
-              reset_action.call
+              reset_action.call(nil)
             else
               display_error(err_msg)
             end

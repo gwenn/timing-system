@@ -2,6 +2,7 @@ module Model
   Struct.new('Racer', :id, :number, :name)
   Struct.new('Race', :id, :name, :closed, :intervalStarts, :startTime)
   Struct.new('Timelog', :raceId, :racerId, :racerNumber, :racerName, :time, :type)
+  Struct.new('Result', :rank, :manifests, :prevRank, :time, :number, :name, :company, :city, :country, :gender)
 
   def init_model(db)
     @db = db
@@ -80,17 +81,56 @@ SQL
     end
   end
 
+  def last_results_version(race)
+    return @db.get_first_value('SELECT time FROM resultVersion WHERE raceId = ?', race.id) || 0
+  end
+  
+  RESULTS_QUERY = <<SQL
+SELECT rank, nb, CASE WHEN prevRank IS NULL THEN NULL
+                         WHEN rank - prevRank > 0 THEN '+'
+                         WHEN rank - prevRank < 0 THEN '-'
+                         ELSE '=' END as delta, time(duration, 'unixepoch'), number, firstName || ' ' || lastName, company, city, country,
+       CASE gender WHEN 1 THEN 'M' ELSE 'F' END AS g
+FROM result
+INNER JOIN racer ON racer.id = result.racerId
+WHERE result.raceId = ? AND result.type = ?
+SQL
+  OVERALL_RESULTS_BY_GENDER_QUERY = RESULTS_QUERY + 'ORDER BY g, rank'
+  RESULTS_BY_COUNTRY_AND_GENDER_QUERY = RESULTS_QUERY + 'ORDER BY country, g, rank'
+
+  def overall_results_by_gender(race)
+    results = Hash.new { |h,k| h[k] = [] }
+    @db.execute(OVERALL_RESULTS_BY_GENDER_QUERY, race.id, 0) do |row|
+      result = Struct::Result.new(*row)
+      results[result.gender].push result
+    end
+    return results
+  end
+
+  def results_by_country_and_gender(race)
+    results = Hash.new { |h,k| h[k] = Hash.new { |h,k| h[k] = [] } }
+    @db.execute(RESULTS_BY_COUNTRY_AND_GENDER_QUERY, race.id, 1) do |row|
+      result = Struct::Result.new(*row)
+      results[result.country][result.gender].push result
+    end
+    return results
+  end
+
   private
   def load_races
     @races = {}
-    @db.execute( "SELECT id, name, status, intervalStarts, startTime FROM race" ) do |row|
-      @races[row[1]] = Struct::Race.new(row[0], row[1], row[2], row[3], row[4])
+    @db.execute('SELECT id, name, status, intervalStarts, startTime FROM race') do |row|
+      race = Struct::Race.new(row[0], row[1], row[2], row[3], row[4])
+      if @first_open_race.nil? && (not race.closed) then
+        @first_open_race = race
+      end
+      @races[row[1]] = race
     end
   end
 
   def load_racers
     @racers = {}
-    @db.execute( "SELECT id, number, firstName, lastName FROM racer" ) do |row|
+    @db.execute('SELECT id, number, firstName, lastName FROM racer') do |row|
       names = row[2, 2]
       names.compact!
       names.delete('')
