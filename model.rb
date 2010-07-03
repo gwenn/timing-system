@@ -2,7 +2,7 @@ module Model
   Struct.new('Racer', :id, :number, :name)
   Struct.new('Race', :id, :name, :closed, :intervalStarts, :startTime)
   Struct.new('Timelog', :raceId, :racerId, :racerNumber, :racerName, :time, :type)
-  Struct.new('Result', :rank, :manifests, :prevRank, :time, :number, :name, :company, :city, :country, :gender)
+  Struct.new('Result', :rank, :manifests, :status, :time, :number, :name, :company, :city, :country, :gender)
 
   def init_model(db)
     @db = db
@@ -31,8 +31,8 @@ SQL
                          to_iso_8601(startTime), closed ? 1 : 0, race.id)
         race.startTime = startTime
         race.closed = closed
-      rescue Exception => e then
-        return e
+      rescue => e
+        return e.message
       else
         return nil
       end
@@ -59,8 +59,8 @@ SQL
           end
         end
       end
-    rescue Exception => e then
-      return e, nil
+    rescue => e
+      return e.message, nil
     else
       return nil, timelogs
     end
@@ -74,8 +74,8 @@ SQL
                      t.raceId, t.racerId, to_iso_8601(t.time))
         end
       end
-    rescue Exception => e then
-      return e
+    rescue => e
+      return e.message
     else
       return nil
     end
@@ -89,19 +89,18 @@ SQL
 SELECT rank, nb, CASE WHEN prevRank IS NULL THEN NULL
                          WHEN rank - prevRank > 0 THEN '+'
                          WHEN rank - prevRank < 0 THEN '-'
-                         ELSE '=' END as delta, time(duration, 'unixepoch'), number, firstName || ' ' || lastName, company, city, country,
+                         ELSE '=' END as delta, time(duration, 'unixepoch'), number, firstName, lastName, company, city, country,
        CASE gender WHEN 1 THEN 'M' ELSE 'F' END AS g
 FROM result
 INNER JOIN racer ON racer.id = result.racerId
 WHERE result.raceId = ? AND result.type = ?
 SQL
-  OVERALL_RESULTS_BY_GENDER_QUERY = RESULTS_QUERY + 'ORDER BY g, rank'
-  RESULTS_BY_COUNTRY_AND_GENDER_QUERY = RESULTS_QUERY + 'ORDER BY country, g, rank'
 
   def overall_results_by_gender(race)
     results = Hash.new { |h,k| h[k] = [] }
-    @db.execute(OVERALL_RESULTS_BY_GENDER_QUERY, race.id, 0) do |row|
-      result = Struct::Result.new(*row)
+    @db.execute(RESULTS_QUERY, race.id, 0) do |row|
+      result = Struct::Result.new(row[0], row[1], row[2], row[3], row[4],
+                                  format_names(row[5..6]), row[7], row[8], row[9], row[10])
       results[result.gender].push result
     end
     return results
@@ -109,8 +108,9 @@ SQL
 
   def results_by_country_and_gender(race)
     results = Hash.new { |h,k| h[k] = Hash.new { |h,k| h[k] = [] } }
-    @db.execute(RESULTS_BY_COUNTRY_AND_GENDER_QUERY, race.id, 1) do |row|
-      result = Struct::Result.new(*row)
+    @db.execute(RESULTS_QUERY, race.id, 1) do |row|
+      result = Struct::Result.new(row[0], row[1], row[2], row[3], row[4],
+                                  format_names(row[5..6]), row[7], row[8], row[9], row[10])
       results[result.country][result.gender].push result
     end
     return results
@@ -131,15 +131,18 @@ SQL
   def load_racers
     @racers = {}
     @db.execute('SELECT id, number, firstName, lastName FROM racer') do |row|
-      names = row[2, 2]
-      names.compact!
-      names.delete('')
-      @racers[row[1]] = Struct::Racer.new(row[0], row[1], names.join(' '))
+      @racers[row[1]] = Struct::Racer.new(row[0], row[1], format_names(row[2, 2]))
     end
   end
 
   def to_iso_8601(time)
       time.strftime('%Y-%m-%d %H:%M:%S') unless time.nil?
+  end
+  def format_names(names)
+    names.compact!
+    names.delete('')
+    #names.map! {|name| name.capitalize! } # FIXME Doesn't work!!!
+    return names.join(' ')
   end
 end
 # vim: set expandtab softtabstop=2 shiftwidth=2:

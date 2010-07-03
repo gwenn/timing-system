@@ -6,9 +6,9 @@
     <title>FFCMC 2010 - <%= @race.name %> - <%= @results_title %></title>
     <script type="text/javascript">
     // TODO Adjust delay
-    // window.onload = window.setTimeout(display_next_screen, 10 * 1000, 1);
-    function display_next_screen(n) {
-      window.location.search = '?p=' + n;
+    window.onload = window.setTimeout(display_next_screen, 10 * 1000);
+    function display_next_screen() {
+      window.location = '<%= @next_page %>';
     }
     </script>
   </head>
@@ -18,10 +18,12 @@
     <table>
       <thead>
         <td>Rank</td>
-        <!-- Optional (useless during qualifications and for closed races  -->
-        <td>Prev. Rank</td>
-        <!-- Optional: Only for finals -->
+<% if @display_status then %>
+        <td>Status</td>
+<% end %>
+<% if @display_manifests then %>
         <td>Manifests</td>
+<% end %>
         <td>Time</td>
         <td>Number</td>
         <td>Name</td>
@@ -29,9 +31,23 @@
         <td>City</td>
         <td>Country</td>
       </thead>
+<% @results.each do |result| %>
       <tr>
-        <!-- ... -->
+        <td><%= result.rank %></td>
+<% if @display_status then %>
+        <td><%= result.status %></td>
+<% end %>
+<% if @display_manifests then %>
+        <td><%= result.manifests %></td>
+<% end %>
+        <td><%= result.time %></td>
+        <td><%= result.number %></td>
+        <td><%= result.name %></td>
+        <td><%= result.company %></td>
+        <td><%= result.city %></td>
+        <td><%= result.country %></td>
       </tr>
+<% end %>
     </table>
   </body>
 </html>
