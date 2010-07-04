@@ -81,6 +81,10 @@ SQL
     end
   end
 
+  def check_race_status(race)
+    return @db.get_first_value('SELECT status FROM race WHERE id = ?', race.id)
+  end
+
   def last_results_version(race)
     return @db.get_first_value('SELECT time FROM resultVersion WHERE raceId = ?', race.id) || 0
   end
@@ -121,9 +125,6 @@ SQL
     @races = {}
     @db.execute('SELECT id, name, status, intervalStarts, startTime FROM race') do |row|
       race = Struct::Race.new(row[0], row[1], row[2], row[3], row[4])
-      if @first_open_race.nil? && (not race.closed) then
-        @first_open_race = race
-      end
       @races[row[1]] = race
     end
   end

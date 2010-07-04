@@ -16,18 +16,16 @@ require 'model'
 DATABASE = SQLite3::Database.new 'race.db'
 
 class TimeWidget < Shoes::Widget
-  # TODO Auto-next when previous field is filled
-  # TODO How to make controls (only numbers, max 2 digits, in [0, 23]
-  # for hour and [0, 59] for min/sec?
   def initialize opts = {}
     @field = edit_line :width => 96, :state => opts[:state]
     @field.change opts[:handler]
+    @original_time = nil
   end
 
   def time
     begin
       if (@field.text =~ /^\d{1,2}:\d{2}(?::\d{2})?$/)
-        time = Time.parse(@field.text)
+        time = Time.parse(@field.text, @original_time.nil? ? Time.now : @original_time)
         return time
       else
         error('KO')
@@ -42,6 +40,7 @@ class TimeWidget < Shoes::Widget
   end
 
   def time=(time)
+    @original_time = time
     if time.nil? then
       @field.text = ''
     else
@@ -57,9 +56,8 @@ Shoes.app :title => 'FFCMC 2010',
   init_model(DATABASE)
 
   stack do
-    @race = list_box :items => races(), :choose => nil, :margin => 5, :width => 1.0
-    @race.change do
-      race_selected(race_by_name(@race.text))
+    list_box :items => races(), :choose => nil, :margin => 5, :width => 1.0 do |list|
+      race_selected(race_by_name(list.text))
     end
     @set_button = button 'Settings', :state => 'disabled', :margin => 5, :width => 1.0 do
       window :title => 'Settings', :width => 280, :height => 190 do

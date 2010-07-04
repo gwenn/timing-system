@@ -83,9 +83,11 @@ Shoes.app :title => 'FFCMC 2010 - Results Generation',
   extend Model
   init_model(DATABASE)
 
-  @current_race = @first_open_race
+  @current_race = nil
   stack do
-    para 'Current race: ', @current_race.name
+    @race_list = list_box :items => races(), :choose => nil, :margin => 5, :width => 1.0 do |list|
+      race_selected(race_by_name(list.text))
+    end
     @status = para '...'
     @error = para :stroke => red, :underline => 'single', :click => proc { |src| Shoes.show_log }
   end
@@ -94,13 +96,19 @@ Shoes.app :title => 'FFCMC 2010 - Results Generation',
   old_version = 0
 
   start do
-    Thread.start do
+    @thread = Thread.start do
+      if @current_race.nil? then
+        Thread.stop
+      end
       begin
         loop do
           mtime = File.mtime(DB_NAME)
           # Database modification seems to be a good/cheap way to test if anything
           # changes...
           if (old_mtime.nil? || old_mtime != mtime) then
+            if (not old_mtime.nil?) then
+              @current_race.closed = check_race_status(@current_race)
+            end
             version = last_results_version(@current_race)
             if (version > old_version) then
               @status.replace "Updating..."
@@ -164,6 +172,10 @@ Shoes.app :title => 'FFCMC 2010 - Results Generation',
     end
   end
 
+  def race_selected(race)
+    @current_race = race
+    @thread.wakeup
+  end
   def update_page(page_path, content)
     File.open(TMP_FILE_PATH, 'w') do |file|
       file.write(TEMPLATE.result(content.get_binding))
