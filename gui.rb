@@ -20,46 +20,33 @@ class TimeWidget < Shoes::Widget
   # TODO How to make controls (only numbers, max 2 digits, in [0, 23]
   # for hour and [0, 59] for min/sec?
   def initialize opts = {}
-    @hour = edit_line :width => 24, :state => opts[:state]
-    @hour.change opts[:handler]
-    para ':'
-    @min = edit_line :width => 24, :state => opts[:state]
-    @min.change opts[:handler]
-    para ':'
-    @sec = edit_line :width => 24, :state => opts[:state]
-    @sec.change opts[:handler]
+    @field = edit_line :width => 96, :state => opts[:state]
+    @field.change opts[:handler]
   end
 
   def time
-    # TODO Factorize
-    if @hour.text !~ /^\d{2}$/ || (not (0..23).include? @hour.text.to_i) then
-      @hour.focus()
+    begin
+      if (@field.text =~ /^\d{1,2}:\d{2}(?::\d{2})?$/)
+        info(@field.text)
+        time = Time.parse(@field.text)
+        return time
+      else
+        error('KO')
+        @field.focus()
+        return nil
+      end
+    rescue => e
+      error(e)
+      @field.focus()
       return nil
     end
-    if @min.text !~ /^\d{2}$/ || (not (0..59).include? @min.text.to_i) then
-      @min.focus()
-      return nil
-    end
-    # TODO Are seconds mandatory?
-    if not (@sec.text.empty? || (@sec.text =~ /^\d{2}$/ && (0..59).include?(@sec.text.to_i))) then
-      @sec.focus()
-      return nil
-    end
-    # FIXME Ugly
-    now = Time.now.to_a
-    now[0..2] = [@sec.text.to_i, @min.text.to_i, @hour.text.to_i]
-    return Time.local(*now)
   end
 
   def time=(time)
     if time.nil? then
-      @hour.text = ''
-      @min.text = ''
-      @sec.text = ''
+      @field.text = ''
     else
-      @hour.text = format '%02d', time.hour
-      @min.text = format '%02d', time.min
-      @sec.text = format '%02d', time.sec
+      @field.text = time.strftime('%H:%M:%S')
     end
   end
 end
@@ -121,6 +108,7 @@ Shoes.app :title => 'FFCMC 2010',
     @manifests_button = button 'Manifests', :state => 'disabled', :margin => 5, :width => 1.0 do
       window :title => "Manifests - #{@current_race.name}", :width => 380, :height => 360 do
         @current_race = owner.current_race
+        
         flow do
           stack :width => 130 do
             para 'Racer Number:', :margin => 10
