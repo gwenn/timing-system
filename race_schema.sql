@@ -18,7 +18,7 @@ CREATE TABLE race (
     name            TEXT NOT NULL,
     intervalStarts  BOOLEAN NOT NULL CHECK (intervalStarts IN (0, 1)), -- 0 | false | 1 | true
     startTime       TIME CHECK (intervalStarts = 0 OR startTime IS NULL), -- null for interval starts
-    status          BOOLEAN NOT NULL DEFAULT 0 -- 0 | START | 1 | END
+    status          BOOLEAN NOT NULL DEFAULT 0 CHECK (status IN (0, 1)) -- 0 | START | 1 | END
 );
 CREATE UNIQUE INDEX race_name ON race(name);
 

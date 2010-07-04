@@ -31,7 +31,7 @@ class ResultPage
   end
 
   def next_page=(next_page)
-    @next_page = URI.parse 'file://' + File.expand_path(next_page)
+    @next_page = URI.parse 'file:' + File.expand_path(next_page)
   end
 
   def get_binding
