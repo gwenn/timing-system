@@ -4,6 +4,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>FFCMC 2010 - <%= @race.name %> - <%= @results_title %></title>
+    <link rel="stylesheet" type="text/css" href="static/results.css" title="Default" media="screen projection"/>
     <script type="text/javascript">
     // TODO Adjust delay
     window.onload = window.setTimeout(display_next_screen, 10 * 1000);
@@ -29,25 +30,27 @@
         <td>Name</td>
         <td>Company</td>
         <td>City</td>
-        <td>Country</td>
+        <td class="flag">Country</td>
       </thead>
-<% @results.each do |result| %>
-      <tr>
-        <td><%= result.rank %></td>
+      <tbody>
+<% @results.each_with_index do |result,index| %>
+        <tr <%= (index % 2 == 0) ? '' : 'class="alt"' %>>
+          <td><%= result.rank %></td>
 <% if @display_status then %>
-        <td><%= result.status %></td>
+          <td><%= result.status %></td>
 <% end %>
 <% if @display_manifests then %>
-        <td><%= result.manifests %></td>
+          <td><%= result.manifests %></td>
 <% end %>
-        <td><%= result.time %></td>
-        <td><%= result.number %></td>
-        <td><%= result.name %></td>
-        <td><%= result.company %></td>
-        <td><%= result.city %></td>
-        <td><%= result.country %></td>
-      </tr>
+          <td><%= result.time %></td>
+          <td><%= result.number %></td>
+          <td><%= result.name %></td>
+          <td><%= result.company %></td>
+          <td><%= result.city %></td>
+          <td class="flag"><img src="static/<%= result.country %>.png" alt="<%= result.country %>"/></td>
+        </tr>
 <% end %>
+      </tbody>
     </table>
   </body>
 </html>
