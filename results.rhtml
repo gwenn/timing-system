@@ -37,7 +37,13 @@
         <tr <%= (index % 2 == 0) ? '' : 'class="alt"' %>>
           <td><%= result.rank %></td>
 <% if @display_status then %>
-          <td><%= result.status %></td>
+<% if result.status == '+' then %>
+            <td class="status"><img src="static/up.png" alt="<%= result.status %>"/></td>
+<% elsif result.status == '-' %>
+            <td class="status"><img src="static/down.png" alt="<%= result.status %>"/></td>
+<% else %>
+            <td></td>
+<% end %>
 <% end %>
 <% if @display_manifests then %>
           <td><%= result.manifests %></td>

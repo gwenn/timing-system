@@ -76,36 +76,22 @@ CREATE TABLE resultHisto (
     FOREIGN KEY (racerId) REFERENCES racer(id) -- ON DELETE CASCADE
 );
 
-CREATE TRIGGER result_backup AFTER DELETE ON result
--- no rank progression needed when a race is closed or during qualifications
-WHEN (SELECT 1 FROM race r WHERE r.id = OLD.raceId AND (r.status = 1 OR r.intervalStarts = 1)) IS NULL
+CREATE TRIGGER race_start_time_check AFTER UPDATE OF startTime ON race
+WHEN OLD.intervalStarts = 0
+AND OLD.startTime IS NOT NULL
+AND EXISTS (SELECT 1 FROM timelog t WHERE t.raceId = OLD.id AND (NEW.startTime IS NULL OR strftime('%s', NEW.startTime) >= strftime('%s', t.time)))
 BEGIN
-    REPLACE INTO resultHisto VALUES (OLD.type, OLD.raceId, OLD.racerId, OLD.rank, OLD.prevRank, OLD.latency);
-END;
-
-CREATE TRIGGER rank_progression AFTER INSERT ON result
--- no rank progression needed when a race is closed or during qualifications
-WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND (r.status = 1 OR r.intervalStarts = 1)) IS NULL
-BEGIN
-    -- TODO Adjust latency...
-    UPDATE result SET
-    prevRank =
-        (SELECT CASE WHEN (OLD.rank <> NEW.rank OR OLD.latency > 10) THEN OLD.rank ELSE OLD.prevRank END
-            FROM resultHisto OLD WHERE OLD.type = NEW.type AND OLD.raceId = NEW.raceId AND OLD.racerId = NEW.racerId),
-    latency = 
-        (SELECT CASE WHEN (OLD.rank <> NEW.rank OR OLD.latency > 10) THEN 0 ELSE OLD.latency + 1 END
-            FROM resultHisto OLD WHERE OLD.type = NEW.type AND OLD.raceId = NEW.raceId AND OLD.racerId = NEW.racerId)
-    WHERE type = NEW.type AND raceId = NEW.raceId AND racerId = NEW.racerId;
+    SELECT RAISE(FAIL, 'Race start time cannot be lesser than associated timelog(s).');
 END;
 
 CREATE TRIGGER not_started_race_lock BEFORE INSERT ON timelog
-WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 0 AND r.intervalStarts = 0 AND r.startTime IS NULL) IS NOT NULL
+WHEN EXISTS (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 0 AND r.intervalStarts = 0 AND r.startTime IS NULL)
 BEGIN
     SELECT RAISE(FAIL, 'No timelog can be inserted until race start time is specified.');
 END;
 CREATE TRIGGER no_time_before_start_time_check BEFORE INSERT ON timelog
-WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 0 AND r.intervalStarts = 0
-    AND r.startTime IS NOT NULL AND strftime('%s', r.startTime) >= strftime('%s', NEW.time)) IS NOT NULL
+WHEN EXISTS (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 0 AND r.intervalStarts = 0
+    AND r.startTime IS NOT NULL AND strftime('%s', r.startTime) >= strftime('%s', NEW.time))
 BEGIN
     SELECT RAISE(FAIL, 'No timelog can be inserted with a time lesser than race start time.');
 END;
@@ -117,26 +103,26 @@ BEGIN
 END;
 
 CREATE TRIGGER closed_race_lock1 BEFORE INSERT ON timelog
-WHEN (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 1) IS NOT NULL
+WHEN EXISTS (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 1)
 BEGIN
     SELECT RAISE(FAIL, 'No timelog can be inserted for a closed race.');
 END;
 CREATE TRIGGER closed_race_lock2 BEFORE UPDATE ON timelog
-WHEN (SELECT 1 FROM race r WHERE r.id = OLD.raceId AND r.status = 1) IS NOT NULL
+WHEN EXISTS (SELECT 1 FROM race r WHERE r.id = OLD.raceId AND r.status = 1)
 BEGIN
     SELECT RAISE(FAIL, 'No timelog can be upated for a closed race.');
 END;
 CREATE TRIGGER closed_race_lock3 BEFORE DELETE ON timelog
-WHEN (SELECT 1 FROM race r WHERE r.id = OLD.raceId AND r.status = 1) IS NOT NULL
+WHEN EXISTS (SELECT 1 FROM race r WHERE r.id = OLD.raceId AND r.status = 1)
 BEGIN
     SELECT RAISE(FAIL, 'No timelog can be deleted for a closed race.');
 END;
 
 CREATE TRIGGER results_generation AFTER INSERT ON timelog
 WHEN NEW.type <> 0 -- Prevent result update when a start time is inserted.
-AND (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 1) IS NULL -- Prevent result update for closed race
+AND NOT EXISTS (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND r.status = 1) -- Prevent result update for closed race
 -- TODO Adjust delay (every minute)?
-AND (SELECT 1 FROM resultVersion v WHERE v.raceId = NEW.raceId AND (strftime('%s','now') - v.time) < 60) IS NULL
+AND NOT EXISTS (SELECT 1 FROM resultVersion v WHERE v.raceId = NEW.raceId AND (strftime('%s','now') - v.time) < 60)
 BEGIN
     -- Create intermediary data/stats
     DELETE FROM position WHERE raceId = NEW.raceId;
@@ -175,9 +161,31 @@ BEGIN
     -- DELETE FROM position WHERE raceId = NEW.raceId;
 END;
 
+CREATE TRIGGER result_backup AFTER DELETE ON result
+-- no rank progression needed when a race is closed or during qualifications
+WHEN NOT EXISTS (SELECT 1 FROM race r WHERE r.id = OLD.raceId AND (r.status = 1 OR r.intervalStarts = 1))
+BEGIN
+    REPLACE INTO resultHisto VALUES (OLD.type, OLD.raceId, OLD.racerId, OLD.rank, OLD.prevRank, OLD.latency);
+END;
+
+CREATE TRIGGER rank_progression AFTER INSERT ON result
+-- no rank progression needed when a race is closed or during qualifications
+WHEN NOT EXISTS (SELECT 1 FROM race r WHERE r.id = NEW.raceId AND (r.status = 1 OR r.intervalStarts = 1))
+BEGIN
+    -- TODO Adjust latency...
+    UPDATE result SET
+    prevRank =
+        (SELECT CASE WHEN (OLD.rank <> NEW.rank OR OLD.latency > 10) THEN OLD.rank ELSE OLD.prevRank END
+            FROM resultHisto OLD WHERE OLD.type = NEW.type AND OLD.raceId = NEW.raceId AND OLD.racerId = NEW.racerId),
+    latency = 
+        (SELECT CASE WHEN (OLD.rank <> NEW.rank OR OLD.latency > 10) THEN 0 ELSE OLD.latency + 1 END
+            FROM resultHisto OLD WHERE OLD.type = NEW.type AND OLD.raceId = NEW.raceId AND OLD.racerId = NEW.racerId)
+    WHERE type = NEW.type AND raceId = NEW.raceId AND racerId = NEW.racerId;
+END;
+
 -- To regenerate result (after manual corrections in timelog for example), just
 -- change race status: UPDATE race set status = 1 where id = ?
-CREATE TRIGGER race_end AFTER UPDATE OF status ON race
+CREATE TRIGGER race_closed AFTER UPDATE OF status ON race
 WHEN NEW.status = 1
 BEGIN
     DELETE FROM resultHisto WHERE raceId = OLD.id; -- TODO Validate

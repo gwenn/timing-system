@@ -31,7 +31,7 @@ class ResultPage
   end
 
   def next_page=(next_page)
-    @next_page = URI.parse 'file:' + File.expand_path(next_page)
+    @next_page = URI.parse 'file:///' + File.expand_path(next_page)
   end
 
   def get_binding
@@ -182,5 +182,6 @@ Shoes.app :title => 'FFCMC 2010 - Results Generation',
     end
     FileUtils.mv TMP_FILE_PATH, page_path, :force => true
   end
+  #Shoes.show_log
 end
 # vim: set expandtab softtabstop=2 shiftwidth=2:

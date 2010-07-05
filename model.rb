@@ -4,7 +4,7 @@ module Model
   Struct.new('Timelog', :raceId, :racerId, :racerNumber, :racerName, :time, :type)
   Struct.new('Result', :rank, :manifests, :status, :time, :number, :name, :company, :city, :country, :gender)
 
-  def init_model(db)
+  def setup_db(db)
     @db = db
     @db.type_translation = true
     @db.execute_batch <<SQL
@@ -12,6 +12,10 @@ PRAGMA foreign_keys=ON;
 PRAGMA count_changes=ON;
 PRAGMA recursive_triggers=ON;
 SQL
+  end
+
+  def init_model(db)
+    setup_db(db)
     load_races()
     load_racers()
   end
