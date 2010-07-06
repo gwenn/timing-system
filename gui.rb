@@ -13,7 +13,7 @@
 require 'sqlite3'
 require 'model'
 
-DATABASE = SQLite3::Database.new 'race.db'
+DATABASE = SQLite3::Database.new 'race.sdb'
 
 class TimeWidget < Shoes::Widget
   def initialize opts = {}

@@ -6,8 +6,8 @@ require 'fileutils'
 class TestModel < Test::Unit::TestCase
   include Model
   def setup
-    FileUtils.cp 'race.db', 'test.db'
-    @db = SQLite3::Database.new 'test.db'
+    FileUtils.cp 'race.sdb', 'test.sdb'
+    @db = SQLite3::Database.new 'test.sdb'
     setup_db(@db)
   end
   def teardown
@@ -57,30 +57,56 @@ class TestModel < Test::Unit::TestCase
     assert_equal('No timelog can be deleted for a closed race.', delete_timelogs(timelogs))
   end
 
+  WOMENS = [ Struct::Racer.new(21), Struct::Racer.new(48), Struct::Racer.new(55), Struct::Racer.new(59) ]
+  FINISH_MENS = [ Struct::Racer.new(19), Struct::Racer.new(27), Struct::Racer.new(56), Struct::Racer.new(65),
+                  Struct::Racer.new(72) ]
+  FRENCH_MENS = [ Struct::Racer.new(12), Struct::Racer.new(14), Struct::Racer.new(22), Struct::Racer.new(24),
+                  Struct::Racer.new(42), Struct::Racer.new(57), Struct::Racer.new(70), Struct::Racer.new(73),
+                  Struct::Racer.new(74), Struct::Racer.new(47) ]
+  OTHER_MENS = [ Struct::Racer.new(32), Struct::Racer.new(39), Struct::Racer.new(45), Struct::Racer.new(53),
+                  Struct::Racer.new(54), Struct::Racer.new(62) ]
+  RACERS = WOMENS + FINISH_MENS + FRENCH_MENS + OTHER_MENS
+
   def test_qualifs_result
+    srand 1234
     now = Time.now
-    race = Struct::Race.new(1)
-    racer1 = Struct::Racer.new(1)
-    racer2 = Struct::Racer.new(2)
-    racer3 = Struct::Racer.new(3)
-    racer4 = Struct::Racer.new(4)
-    racer5 = Struct::Racer.new(5)
-    add_timelogs(race, racer1, now, now + 3600)
-    add_timelogs(race, racer2, now, now + 3500)
-    add_timelogs(race, racer3, now, now + 3700)
-    add_timelogs(race, racer4, now, now + 3400)
-    add_timelogs(race, racer5, now, now + 3800)
+    race = Struct::Race.new(1, 'Qualifs', false, true)
+    RACERS.each do |racer|
+      add_timelogs(race, racer, now, now + 3600 + rand(3600))
+    end
     version = last_results_version(race)
     assert_not_equal(0, version)
+    sleep 1
     assert_nil(update_race(race, nil, true))
     new_version = last_results_version(race)
-    #assert_not_equal(version, new_version)
+    assert_not_equal(version, new_version)
     results = overall_results_by_gender(race)
-    assert_equal(1, results.size)
-    p results
+    # TODO Assertions
   end
 
   def test_finals_results
+    srand 1234
+    now = Time.now
+    race = Struct::Race.new(2, 'Finals', false, false)
+    assert_nil(update_race(race, now, false))
+    previous_times = Array.new(RACERS.length, now)
+    15.times do |t|
+      RACERS.each_with_index do |racer,i|
+        if t < 10 || rand(t) < 10 then
+          next_time = previous_times[i] + 3600 + rand(3600)
+          previous_times[i] = next_time
+          add_timelogs(race, racer, next_time)
+        end
+      end
+    end
+    version = last_results_version(race)
+    assert_not_equal(0, version)
+    sleep 1
+    assert_nil(update_race(race, race.startTime, true))
+    new_version = last_results_version(race)
+    assert_not_equal(version, new_version)
+    results = overall_results_by_gender(race)
+    # TODO Assertions
   end
 end
 # vim: set expandtab softtabstop=2 shiftwidth=2:
