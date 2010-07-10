@@ -57,14 +57,14 @@ class TestModel < Test::Unit::TestCase
     assert_equal('No timelog can be deleted for a closed race.', delete_timelogs(timelogs))
   end
 
-  WOMENS = [ Struct::Racer.new(21), Struct::Racer.new(48), Struct::Racer.new(55), Struct::Racer.new(59) ]
-  FINISH_MENS = [ Struct::Racer.new(19), Struct::Racer.new(27), Struct::Racer.new(56), Struct::Racer.new(65),
-                  Struct::Racer.new(72) ]
-  FRENCH_MENS = [ Struct::Racer.new(12), Struct::Racer.new(14), Struct::Racer.new(22), Struct::Racer.new(24),
-                  Struct::Racer.new(42), Struct::Racer.new(57), Struct::Racer.new(70), Struct::Racer.new(73),
-                  Struct::Racer.new(74), Struct::Racer.new(47) ]
-  OTHER_MENS = [ Struct::Racer.new(32), Struct::Racer.new(39), Struct::Racer.new(45), Struct::Racer.new(53),
-                  Struct::Racer.new(54), Struct::Racer.new(62) ]
+  WOMENS = [ Struct::Racer.new(21, 59), Struct::Racer.new(48, 984), Struct::Racer.new(55, 106), Struct::Racer.new(59, 812) ]
+  FINISH_MENS = [ Struct::Racer.new(19, 108), Struct::Racer.new(27, 130), Struct::Racer.new(56, 47), Struct::Racer.new(65, 333),
+                  Struct::Racer.new(72, 96) ]
+  FRENCH_MENS = [ Struct::Racer.new(12, 301), Struct::Racer.new(14, 893), Struct::Racer.new(22, 34), Struct::Racer.new(24, 76),
+                  Struct::Racer.new(42, 421), Struct::Racer.new(57, 69), Struct::Racer.new(70, 125), Struct::Racer.new(73, 75),
+                  Struct::Racer.new(74, 9), Struct::Racer.new(47, 666) ]
+  OTHER_MENS = [ Struct::Racer.new(32, 2047), Struct::Racer.new(39, 48), Struct::Racer.new(45, 22), Struct::Racer.new(53, 531),
+                  Struct::Racer.new(54, 567), Struct::Racer.new(62, 101) ]
   RACERS = WOMENS + FINISH_MENS + FRENCH_MENS + OTHER_MENS
 
   def test_qualifs_result

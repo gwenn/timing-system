@@ -10,8 +10,8 @@ require 'fileutils'
 RACERS_PER_PAGE = 5 # 20
 SLEEP_DURATION = 120
 
-#DB_NAME = 'race.sdb'
-DB_NAME = 'test.sdb'
+DB_NAME = 'race.sdb'
+#DB_NAME = 'test.sdb'
 DATABASE = SQLite3::Database.new DB_NAME
 
 TEMPLATE = ERB.new(File.read('results.rhtml'), nil, '<>')
@@ -32,9 +32,12 @@ class ResultPage
   end
 
   def next_page=(next_page)
+    if RUBY_PLATFORM.downcase.include?("mswin") then
+      @next_page = 'file:///' + File.expand_path(next_page)
     # RUBY_PLATFORM.downcase.include?("linux")
-    # RUBY_PLATFORM.downcase.include?("mswin")
-    @next_page = File.expand_path(next_page)
+    else
+      @next_page = 'file://' + File.expand_path(next_page)
+    end
   end
 
   def get_binding

@@ -24,8 +24,10 @@ class TimeWidget < Shoes::Widget
 
   def time
     begin
-      if (@field.text =~ /^\d{1,2}:\d{2}(?::\d{2})?$/)
-        time = Time.parse(@field.text, @original_time.nil? ? Time.now : @original_time)
+      text = @field.text
+      text.gsub!(/\./, ':')
+      if (text =~ /^\d{1,2}:\d{2}(?::\d{2})?$/)
+        time = Time.parse(text, @original_time.nil? ? Time.now : @original_time)
         return time
       else
         error('KO')
