@@ -1,3 +1,7 @@
 thead {background-color: #AAA; font-weight: bold;}
 tr.alt {background-color: #DDD;}
 td.flag {text-align: center;}
+
+table {width: 92%;}
+/* td {font-size: 150%/1em;} */
+td {font-size: 2em;}

@@ -67,7 +67,7 @@ class TestModel < Test::Unit::TestCase
                   Struct::Racer.new(54, 567), Struct::Racer.new(62, 101) ]
   RACERS = WOMENS + FINISH_MENS + FRENCH_MENS + OTHER_MENS
 
-  def test_qualifs_result
+  def test_qualifs_results
     srand 1234
     now = Time.now
     race = Struct::Race.new(1, 'Qualifs', false, true)
