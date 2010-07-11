@@ -20,7 +20,7 @@ TMP_FILE_PATH = './results.tmp'
 class ResultPage
   def initialize(race, country, gender, results, page)
     @race = race
-    @results_title = get_title(country, gender)
+    @results_title = get_title(country, gender, @race.closed)
     @path = get_path(country, gender, page)
     @results = results
     @display_status = (not @race.closed) && (not @race.intervalStarts)
@@ -45,9 +45,9 @@ class ResultPage
   end
 
   private
-  def get_title(country, gender)
+  def get_title(country, gender, closed)
     parts = []
-    parts << get_country_label(country) + ' Results'
+    parts << get_country_label(country) + (closed ? ' Results' : ' Intermediate Results')
     parts << get_gender_label(gender)
     parts.compact!
     return parts.join(' - ')

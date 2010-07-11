@@ -7,7 +7,11 @@
     <link rel="stylesheet" type="text/css" href="static/results.css" title="Default" media="screen projection"/>
     <script type="text/javascript">
     // TODO Adjust delay
-    window.onload = window.setTimeout(display_next_screen, 10 * 1000);
+    window.onload = window.setTimeout(fade_transition, 10 * 1000);
+    function fade_transition() {
+      document.getElementById("results").style.opacity = 0.5;
+      window.setTimeout(display_next_screen, 1 * 1000);
+    }
     function display_next_screen() {
       window.location = '<%= @next_page %>';
     }
@@ -16,7 +20,7 @@
   <body>
     <h1>FFCMC 2010 - <%= @race.name %></h1>
     <h2><%= @results_title %></h2>
-    <table>
+    <table id="results">
       <thead>
         <td>Rank</td>
 <% if @display_status then %>
